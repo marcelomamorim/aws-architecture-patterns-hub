@@ -1,0 +1,19 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="130" y="220" width="220" height="130" rx="28" fill="#12303A" stroke="#E2B46F"/>
+  <rect x="130" y="400" width="220" height="130" rx="28" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="490" y="180" width="260" height="160" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="490" y="400" width="260" height="160" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="860" y="180" width="200" height="160" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="860" y="400" width="200" height="160" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <path d="M350 285H490" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M350 465H490" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M750 260H860" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M750 480H860" stroke="#5BD0BF" stroke-width="3"/>
+  <text x="184" y="296" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Commands</text>
+  <text x="202" y="476" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Queries</text>
+  <text x="540" y="272" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Write model</text>
+  <text x="540" y="492" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Read model</text>
+  <text x="900" y="272" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">State store</text>
+  <text x="908" y="492" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Projection</text>
+</svg>

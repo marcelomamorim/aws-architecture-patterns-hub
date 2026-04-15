@@ -1,0 +1,46 @@
+---
+interface Props {
+  title: string;
+  tone?: "note" | "warning";
+}
+
+const { title, tone = "note" } = Astro.props;
+---
+
+<aside class:list={["callout", tone]}>
+  <strong>{title}</strong>
+  <div>
+    <slot />
+  </div>
+</aside>
+
+<style>
+  .callout {
+    display: grid;
+    gap: 0.7rem;
+    padding: 1rem 1.05rem;
+    margin: 1.5rem 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .callout.note {
+    border-left: 3px solid rgba(var(--primary-rgb), 0.55);
+  }
+
+  .callout.warning {
+    border-left: 3px solid color-mix(in srgb, var(--danger) 55%, transparent);
+    background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  }
+
+  .callout strong {
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .callout :global(p:last-child) {
+    margin-bottom: 0;
+  }
+</style>

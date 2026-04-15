@@ -1,0 +1,183 @@
+---
+interface Props {
+  title?: string;
+  type: "flowchart" | "sequenceDiagram" | "stateDiagram-v2";
+  code: string;
+  caption?: string;
+}
+
+const { title, type, code, caption } = Astro.props;
+const definition = `${type}\n${code.trim()}`;
+---
+
+<figure class="architecture-diagram">
+  {title && <figcaption class="diagram-title">{title}</figcaption>}
+  <div class="diagram-canvas" data-mermaid-code={definition}>
+    <pre>{definition}</pre>
+  </div>
+  {caption && <p class="diagram-caption">{caption}</p>}
+</figure>
+
+<script>
+  let mermaidPromise;
+
+  const getMermaid = async () => {
+    mermaidPromise ??= import("mermaid").then((module) => module.default);
+    return mermaidPromise;
+  };
+
+  const getIsDark = () => (document.documentElement.dataset.theme || "light") === "dark";
+
+  const lightThemeVariables = {
+    background: "#ffffff",
+    primaryColor: "#eef2f7",
+    primaryTextColor: "#101828",
+    primaryBorderColor: "#155eef",
+    lineColor: "#667085",
+    secondaryColor: "#f8fafc",
+    tertiaryColor: "#ffffff",
+    mainBkg: "#f8fafc",
+    nodeBorder: "#155eef",
+    clusterBkg: "#f8fafc",
+    clusterBorder: "#98a2b3",
+    actorBkg: "#ffffff",
+    actorBorder: "#155eef",
+    actorTextColor: "#101828",
+    noteBkgColor: "#eef2f7",
+    noteTextColor: "#1d2939",
+    noteBorderColor: "#98a2b3",
+    activationBorderColor: "#98a2b3",
+    activationBkgColor: "#eef2f7",
+    sequenceNumberColor: "#ffffff"
+  };
+
+  const darkThemeVariables = {
+    background: "#0f1b31",
+    primaryColor: "#172741",
+    primaryTextColor: "#f5f7fb",
+    primaryBorderColor: "#6ea8ff",
+    lineColor: "#9dacbf",
+    secondaryColor: "#13213b",
+    tertiaryColor: "#0f1b31",
+    mainBkg: "#13213b",
+    nodeBorder: "#6ea8ff",
+    clusterBkg: "#13213b",
+    clusterBorder: "#304261",
+    actorBkg: "#0f1b31",
+    actorBorder: "#6ea8ff",
+    actorTextColor: "#f5f7fb",
+    noteBkgColor: "#172741",
+    noteTextColor: "#d3dbea",
+    noteBorderColor: "#304261",
+    activationBorderColor: "#304261",
+    activationBkgColor: "#172741",
+    sequenceNumberColor: "#081120"
+  };
+
+  const renderDiagrams = async () => {
+    const mermaid = await getMermaid();
+    const isDark = getIsDark();
+    const themeVariables = isDark ? darkThemeVariables : lightThemeVariables;
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? "dark" : "base",
+      securityLevel: "loose",
+      themeVariables
+    });
+
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>(".diagram-canvas[data-mermaid-code]"));
+
+    await Promise.all(
+      nodes.map(async (node, index) => {
+        const source = node.dataset.mermaidCode?.trim();
+
+        if (!source) {
+          return;
+        }
+
+        const diagramId = `mermaid-${index}-${Math.random().toString(36).slice(2, 10)}`;
+        try {
+          const { svg } = await mermaid.render(diagramId, source);
+          node.innerHTML = svg;
+          node.dataset.rendered = "true";
+        } catch (error) {
+          console.error("Mermaid render failed", error);
+          node.innerHTML = `<pre>${source}</pre>`;
+          node.dataset.rendered = "error";
+        }
+      })
+    );
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        void renderDiagrams();
+      },
+      { once: true }
+    );
+  } else {
+    void renderDiagrams();
+  }
+
+  document.addEventListener("astro:page-load", () => {
+    void renderDiagrams();
+  });
+
+  document.addEventListener("themechange", () => {
+    void renderDiagrams();
+  });
+</script>
+
+<style>
+  .architecture-diagram {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1.75rem 0;
+  }
+
+  .diagram-title {
+    color: var(--text);
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+
+  .diagram-canvas {
+    overflow-x: auto;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .diagram-canvas :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 38rem;
+  }
+
+  .diagram-canvas pre {
+    margin: 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    min-width: max-content;
+    white-space: pre-wrap;
+  }
+
+  .diagram-caption {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  @media (max-width: 720px) {
+    .diagram-canvas :global(svg) {
+      min-width: 28rem;
+    }
+  }
+</style>

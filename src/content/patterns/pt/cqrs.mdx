@@ -1,0 +1,194 @@
+---
+lang: pt
+slug: cqrs
+title: "CQRS"
+summary: "Separa comandos de escrita e consultas de leitura para otimizar cada lado com modelos, escalas e contratos diferentes."
+category: data
+problemFocus: data-consistency
+problem: "O mesmo modelo esta tentando sustentar validacoes transacionais rigorosas e consultas de leitura com formatos e latencias muito diferentes."
+whenToUse:
+  - "Quando leitura e escrita possuem perfis de carga e modelagem muito distintos."
+  - "Quando a experiencia de leitura precisa de projecoes prontas para UI, relatorios ou busca."
+  - "Quando o dominio exige proteger invariantes no write side."
+whenNotToUse:
+  - "Quando um CRUD simples resolve o problema com baixo custo operacional."
+  - "Quando a equipe ainda nao domina consistencia eventual e reprocessamento."
+  - "Quando a duplicacao de modelos nao entrega ganho claro de negocio."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "leitura"
+  - "escrita"
+  - "projecoes"
+  - "consistencia eventual"
+awsServices:
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "AWS Lambda"
+  - "Amazon OpenSearch Service"
+relatedPatterns:
+  - "event-sourcing"
+  - "api-composition"
+  - "cache-aside"
+media:
+  heroImage:
+    src: "/media/patterns/cqrs.svg"
+    alt: "Diagrama separando comandos, modelo de escrita, projecoes e leitura."
+    caption: "Escrita e leitura evoluem de forma independente ao redor do mesmo dominio."
+  diagram:
+    src: "/media/patterns/cqrs.svg"
+    alt: "Diagrama separando comandos, modelo de escrita, projecoes e leitura."
+    caption: "Escrita e leitura evoluem de forma independente ao redor do mesmo dominio."
+asciiDiagram:
+  title: "CQRS :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | CQRS :: leitura rapida                                         |
+    +----------------------------------------------------------------+
+    | [01] Comandos entram no write side                             |
+    | -> Validacao, autorizacao e invariantes vivem no modelo tra... |
+    | [02] Mudancas confirmadas geram eventos ou sinais derivados    |
+    | -> Essas mudancas abastecem o pipeline de projecoes.           |
+    | [03] Read models materializam visoes especializadas            |
+    | -> Cada consumidor recebe a forma de dado que realmente pre... |
+    | [04] Consultas leem apenas o lado de leitura                   |
+    | -> A interface deixa de forcar joins e agregacoes no caminh... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon DynamoDB | Amazon EventBridge | AWS Lambda       |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "fowler-cqrs"
+    title: "CQRS"
+    authors:
+      - "Martin Fowler"
+    year: 2011
+    publisher: "martinfowler.com"
+    type: article
+    role: conceptual
+    url: "https://martinfowler.com/bliki/CQRS.html"
+  - id: "aws-cqrs-pattern"
+    title: "CQRS pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/cqrs-pattern.html"
+  - id: "kleppmann-ddia"
+    title: "Designing Data-Intensive Applications"
+    authors:
+      - "Martin Kleppmann"
+    year: 2017
+    publisher: "O'Reilly Media"
+    type: book
+    role: complementary
+featured: true
+---
+
+## Conceito geral
+
+CQRS aparece quando um modelo unico sacrifica demais um dos lados: ou a escrita perde clareza e protecao de invariantes, ou a leitura vira uma composicao lenta e cara. <Cite ids={["fowler-cqrs"]} />
+
+Ao separar command side e query side, voce pode persistir o dominio com rigor e publicar mudancas para projecoes de leitura desenhadas especificamente para consumo. <Cite ids={["aws-cqrs-pattern","kleppmann-ddia"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Write side protegido, read side otimizado"} type="flowchart" code={"Client[\"Cliente / API\"] --> Commands[\"Commands\"]\nCommands --> Write[\"Write model\"]\nWrite --> Events[\"Domain events\"]\nEvents --> Projections[\"Projection pipeline\"]\nProjections --> Read[\"Read models\"]\nRead --> Queries[\"Queries / Search / Dashboards\"]"} caption={"A escrita preserva regras de dominio; a leitura recebe visoes materializadas para consumo rapido."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "Comandos entram no write side",
+    "description": "Validacao, autorizacao e invariantes vivem no modelo transacional."
+  },
+  {
+    "title": "Mudancas confirmadas geram eventos ou sinais derivados",
+    "description": "Essas mudancas abastecem o pipeline de projecoes."
+  },
+  {
+    "title": "Read models materializam visoes especializadas",
+    "description": "Cada consumidor recebe a forma de dado que realmente precisa."
+  },
+  {
+    "title": "Consultas leem apenas o lado de leitura",
+    "description": "A interface deixa de forcar joins e agregacoes no caminho critico."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Performance",
+    "benefit": "Leitura e escrita escalam de forma independente.",
+    "cost": "Voce opera multiplas representacoes do mesmo dominio."
+  },
+  {
+    "area": "Clareza",
+    "benefit": "O write side fica focado em intencao e invariantes.",
+    "cost": "Aumenta a carga conceitual para times acostumados a CRUD."
+  },
+  {
+    "area": "Consistencia",
+    "benefit": "Read models podem ficar muito proximos da experiencia final.",
+    "cost": "A arquitetura precisa aceitar e observar consistencia eventual."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Ha telas ou consultas que pedem agregacoes custosas demais no modelo transacional.",
+  "O dominio possui regras de escrita que precisam de forte protecao.",
+  "Existe maturidade para reconstruir projecoes e lidar com lag."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "CQRS esta sendo introduzido apenas por moda arquitetural.",
+  "Nao existe estrategia para replay ou rebuild de read models.",
+  "As equipes esperam leitura instantaneamente consistente em todos os casos."
+]} />
+
+<Callout title={"Nuance importante"} tone="warning">
+  <p>CQRS nao exige Event Sourcing, mas combina muito bem com fluxos dirigidos por eventos quando as projecoes precisam ser recalculadas ou especializadas. <Cite ids={["fowler-cqrs","kleppmann-ddia"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Plataforma de pedidos com APIs transacionais, busca operacional e dashboards de leitura intensa."} services={[
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "AWS Lambda",
+  "Amazon OpenSearch Service"
+]} implementation={[
+  "Commands entram por uma API que persiste aggregates em Amazon DynamoDB.",
+  "Eventos de dominio seguem para Amazon EventBridge logo apos a escrita validada.",
+  "AWS Lambda atualiza projecoes em tabelas dedicadas ou indices do Amazon OpenSearch Service.",
+  "As APIs de consulta apontam apenas para o read side, isolando o modelo transacional."
+]} />
+
+## Erros comuns
+
+- Duplicar o mesmo schema no read side e perder o principal beneficio do padrao.
+- Misturar regra de negocio pesada dentro do pipeline de projecao.
+- Ignorar medicao de lag entre escrita e leitura.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "CQRS vs Cache-Aside",
+    "difference": "Cache-Aside acelera um modelo existente; CQRS cria um modelo de leitura explicitamente separado."
+  },
+  {
+    "title": "CQRS vs API Composition",
+    "difference": "CQRS materializa leitura antecipadamente; API Composition junta dados on demand."
+  }
+]} />

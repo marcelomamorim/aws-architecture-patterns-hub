@@ -1,0 +1,10 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#08141B"/>
+  <circle cx="150" cy="140" r="140" fill="#5BD0BF" fill-opacity="0.14"/>
+  <circle cx="1030" cy="140" r="120" fill="#E2B46F" fill-opacity="0.16"/>
+  <rect x="80" y="80" width="1040" height="470" rx="32" fill="#0D1F28" stroke="#264850"/>
+  <text x="130" y="220" fill="#E2B46F" font-family="Arial, sans-serif" font-size="24" letter-spacing="4">AWS ARCHITECTURE PATTERNS HUB</text>
+  <text x="130" y="320" fill="#F6F3EC" font-family="Georgia, serif" font-size="68" font-weight="700">Bilingual architecture</text>
+  <text x="130" y="398" fill="#F6F3EC" font-family="Georgia, serif" font-size="68" font-weight="700">patterns with AWS mapping</text>
+  <text x="130" y="478" fill="#A6D2D8" font-family="Arial, sans-serif" font-size="30">Visual flow, trade-offs, references, and implementation notes for GitHub Pages.</text>
+</svg>

@@ -1,0 +1,186 @@
+---
+lang: en
+slug: api-composition
+title: "API Composition"
+summary: "Builds responses by querying multiple services at request time, combining data without precomputing a dedicated read model."
+category: data
+problemFocus: api-abstraction
+problem: "A business query needs data from multiple services, but there is not yet a purpose-built read model for it."
+whenToUse:
+  - "When the main need is aggregated query responses quickly."
+  - "When volume and complexity still do not justify a dedicated materialized projection."
+  - "When several service-owned datasets must appear together for the client."
+whenNotToUse:
+  - "When the query is too frequent or heavy to assemble on demand."
+  - "When cumulative latency across calls would be too high."
+  - "When a dedicated read model already exists for the use case."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "composition"
+  - "queries"
+  - "aggregation"
+  - "read facade"
+awsServices:
+  - "AWS AppSync"
+  - "AWS Lambda"
+  - "Amazon API Gateway"
+  - "Amazon DynamoDB"
+relatedPatterns:
+  - "api-gateway"
+  - "cqrs"
+  - "database-per-service"
+media: {}
+asciiDiagram:
+  title: "API Composition :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | API Composition :: quick read                                  |
+    +----------------------------------------------------------------+
+    | [01] The request reaches the composer                          |
+    | -> It knows which services need to contribute to the final...  |
+    | [02] Parallel calls collect the needed fragments               |
+    | -> Each service still owns its own data.                       |
+    | [03] The composer joins results in memory                      |
+    | -> The client receives the shape it actually needs.            |
+    | [04] Total latency reflects all dependencies                   |
+    | -> Observability and timeouts become essential.                |
+    +----------------------------------------------------------------+
+    | AWS :: AWS AppSync | AWS Lambda | Amazon API Gateway           |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "microservices-api-composition"
+    title: "Pattern: API Composition"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/data/api-composition.html"
+  - id: "aws-appsync-pipeline-js"
+    title: "Configuring and using pipeline resolvers in AWS AppSync (JavaScript)"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS AppSync Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/appsync/latest/devguide/pipeline-resolvers-js.html"
+  - id: "microservices-patterns-book"
+    title: "Microservices Patterns"
+    authors:
+      - "Chris Richardson"
+    year: 2018
+    publisher: "Manning"
+    type: book
+    role: complementary
+featured: false
+---
+
+## General concept
+
+API Composition answers queries by calling the services that own the data and assembling the response in real time at the entry point. <Cite ids={["microservices-api-composition"]} />
+
+It is useful when aggregation is needed, but not yet enough to justify creating and operating a dedicated projection as in CQRS. <Cite ids={["aws-appsync-pipeline-js","microservices-patterns-book"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Aggregated response at request time"} type="flowchart" code={"Client[\"Client\"] --> Composer[\"API composer\"]\nComposer --> Orders[\"Orders service\"]\nComposer --> Catalog[\"Catalog service\"]\nComposer --> Pricing[\"Pricing service\"]\nOrders --> Composer\nCatalog --> Composer\nPricing --> Composer\nComposer --> Response[\"Aggregated response\"]"} caption={"The composer fetches the necessary fragments and returns one unified response without precomputing a read store."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The request reaches the composer",
+    "description": "It knows which services need to contribute to the final view."
+  },
+  {
+    "title": "Parallel calls collect the needed fragments",
+    "description": "Each service still owns its own data."
+  },
+  {
+    "title": "The composer joins results in memory",
+    "description": "The client receives the shape it actually needs."
+  },
+  {
+    "title": "Total latency reflects all dependencies",
+    "description": "Observability and timeouts become essential."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Simplicity",
+    "benefit": "Solves aggregation without building new read stores.",
+    "cost": "The query depends on the health and latency of several services."
+  },
+  {
+    "area": "Delivery",
+    "benefit": "Can be introduced quickly for a new read use case.",
+    "cost": "Can become slow and expensive for frequent or broad queries."
+  },
+  {
+    "area": "Architecture",
+    "benefit": "Keeps data ownership with the source services.",
+    "cost": "The composer becomes another point of synchronous coupling."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There is demand for aggregation, but not yet for a materialized view.",
+  "The number of dependencies per query remains controlled.",
+  "Aggregate latency still fits the client budget."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The query depends on too many hops or expensive in-memory joins.",
+  "The composer has turned into a layer full of business rules.",
+  "The use case is frequent enough that CQRS may now be a better fit."
+]} />
+
+<Callout title={"Useful heuristic"} tone="warning">
+  <p>When the same composition becomes too frequent or too expensive, it is usually time to evaluate a dedicated read model. <Cite ids={["microservices-api-composition","microservices-patterns-book"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"An order screen must combine order status, catalog data, and pricing in one response."} services={[
+  "AWS AppSync",
+  "AWS Lambda",
+  "Amazon API Gateway",
+  "Amazon DynamoDB"
+]} implementation={[
+  "AWS AppSync pipeline resolvers or an AWS Lambda function can perform the composition in a controlled way.",
+  "Each dependency gets its own timeout, observability, and fallback treatment.",
+  "Amazon API Gateway can expose the facade while composition runs behind it.",
+  "If the query becomes too critical, the team can later migrate it toward CQRS or a specialized replica."
+]} />
+
+## Common mistakes
+
+- Building responses through too many sequential calls.
+- Hiding complex business rules inside the composer.
+- Ignoring the latency cost of repeated in-memory joins.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "API Composition vs CQRS",
+    "difference": "API Composition aggregates data on demand; CQRS pre-materializes read views."
+  },
+  {
+    "title": "API Composition vs API Gateway",
+    "difference": "API Composition is the technique of joining data; API Gateway is the edge facade where that technique may live."
+  }
+]} />

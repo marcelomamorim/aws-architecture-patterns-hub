@@ -1,0 +1,54 @@
+---
+interface Props {
+  title?: string;
+  art: string;
+  caption?: string;
+}
+
+const { title, art, caption } = Astro.props;
+---
+
+<figure class="ascii-diagram">
+  {title && <figcaption class="ascii-title">{title}</figcaption>}
+  <div class="ascii-shell">
+    <pre>{art}</pre>
+  </div>
+  {caption && <p class="ascii-caption">{caption}</p>}
+</figure>
+
+<style>
+  .ascii-diagram {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .ascii-title {
+    color: var(--text-soft);
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .ascii-shell {
+    overflow-x: auto;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: #fbfcfe;
+  }
+
+  .ascii-shell pre {
+    margin: 0;
+    min-width: max-content;
+    color: var(--text-soft);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .ascii-caption {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+</style>

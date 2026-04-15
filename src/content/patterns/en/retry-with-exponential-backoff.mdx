@@ -1,0 +1,187 @@
+---
+lang: en
+slug: retry-with-exponential-backoff
+title: "Retry with Exponential Backoff"
+summary: "Repeats transient failures with increasing wait intervals and clear limits, reducing pressure on unstable dependencies."
+category: resilience
+problemFocus: fault-isolation
+problem: "Short-lived failures might succeed on retry, but aggressive immediate retries often amplify overload instead of helping recovery."
+whenToUse:
+  - "When the failure is clearly transient and the operation can be repeated safely."
+  - "When the call is idempotent or protected against duplicate effects."
+  - "When there is a bounded attempt budget and latency budget for the caller."
+whenNotToUse:
+  - "When the error is permanent or business-related rather than technical."
+  - "When the operation is not idempotent."
+  - "When retries at multiple layers multiply pressure on the downstream dependency."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "retry"
+  - "backoff"
+  - "jitter"
+  - "transient failures"
+awsServices:
+  - "AWS Step Functions"
+  - "AWS Lambda"
+  - "Amazon API Gateway"
+  - "Amazon SQS"
+relatedPatterns:
+  - "timeout"
+  - "circuit-breaker"
+  - "idempotent-consumer"
+media: {}
+asciiDiagram:
+  title: "Retry with Exponential Backoff :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Retry with Exponential Backoff :: quick read                   |
+    +----------------------------------------------------------------+
+    | [01] The call fails for a transient reason                     |
+    | -> Short timeouts, throttling, or temporary unavailability...  |
+    | [02] The client waits before trying again                      |
+    | -> The interval grows with each attempt to relieve the down... |
+    | [03] Jitter spreads retries over time                          |
+    | -> That avoids the classic synchronized retry wave.            |
+    | [04] The flow stops at a clear limit                           |
+    | -> Every retry policy needs max attempts and a caller-visib... |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Step Functions | AWS Lambda | Amazon API Gateway    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "aws-builders-timeouts-retries"
+    title: "Timeouts, retries, and backoff with jitter"
+    authors:
+      - "Marc Brooker"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: conceptual
+    url: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+  - id: "aws-pg-retry-backoff"
+    title: "Retry with backoff pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/retry-backoff.html"
+  - id: "aws-stepfunctions-error-handling"
+    title: "Handling errors in Step Functions workflows"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/concepts-error-handling.html"
+featured: false
+---
+
+## General concept
+
+Retry with Exponential Backoff starts from the observation that some failures are temporary, but retrying again immediately and in lockstep usually makes things worse. <Cite ids={["aws-builders-timeouts-retries"]} />
+
+By increasing the delay between attempts and limiting total retries, the client reduces pressure on the dependency while still capturing legitimate quick recoveries. <Cite ids={["aws-pg-retry-backoff","aws-stepfunctions-error-handling"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Retries with increasing delay"} type="sequenceDiagram" code={"participant Client\nparticipant Service\nClient->>Service: Request\nService-->>Client: Transient failure\nClient->>Client: Wait 1s\nClient->>Service: Retry #1\nService-->>Client: Transient failure\nClient->>Client: Wait 2s + jitter\nClient->>Service: Retry #2\nService-->>Client: Success"} caption={"Backoff controls pace; jitter prevents everybody from retrying at the same instant."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The call fails for a transient reason",
+    "description": "Short timeouts, throttling, or temporary unavailability are typical candidates."
+  },
+  {
+    "title": "The client waits before trying again",
+    "description": "The interval grows with each attempt to relieve the downstream system."
+  },
+  {
+    "title": "Jitter spreads retries over time",
+    "description": "That avoids the classic synchronized retry wave."
+  },
+  {
+    "title": "The flow stops at a clear limit",
+    "description": "Every retry policy needs max attempts and a caller-visible latency budget."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Perceived availability",
+    "benefit": "Short failures can turn into legitimate success.",
+    "cost": "Latency grows while the caller keeps retrying."
+  },
+  {
+    "area": "Protection",
+    "benefit": "Backoff reduces load on unstable dependencies.",
+    "cost": "Without limits, retries are still extra pressure."
+  },
+  {
+    "area": "Correctness",
+    "benefit": "Can improve resilience without changing business semantics.",
+    "cost": "Depends on idempotency and correct error classification."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The operation fails in a transient and predictable way.",
+  "There is idempotency or another safe repeat mechanism.",
+  "Retry policy is centralized and observable."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Retries are configured independently at several layers of the stack.",
+  "The system retries permanent business errors.",
+  "There is no jitter and no maximum attempt limit."
+]} />
+
+<Callout title={"Golden rule"} tone="warning">
+  <p>Retry is not a universal cure: it only works when combined with error classification, idempotency, and a clearly bounded patience budget. <Cite ids={["aws-builders-timeouts-retries","aws-pg-retry-backoff"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A workflow calls an external API that is subject to intermittent throttling and short outages."} services={[
+  "AWS Step Functions",
+  "AWS Lambda",
+  "Amazon API Gateway",
+  "Amazon SQS"
+]} implementation={[
+  "AWS Step Functions defines Retry with intervalSeconds, backoffRate, and maxAttempts per task.",
+  "AWS Lambda and HTTP clients use short timeouts plus a centralized retry policy.",
+  "Amazon SQS can buffer work when retries should move out of the synchronous path.",
+  "Attempt count, final success rate, and end-to-end latency help tune the policy."
+]} />
+
+## Common mistakes
+
+- Retrying without jitter and causing a thundering herd.
+- Retrying non-idempotent operations.
+- Using very high maxAttempts with no latency budget.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Retry with Exponential Backoff vs Circuit Breaker",
+    "difference": "Backoff decides how to retry; Circuit Breaker decides when to stop trying altogether for a while."
+  },
+  {
+    "title": "Retry with Exponential Backoff vs Timeout",
+    "difference": "Timeout decides when to give up on one attempt; Backoff decides how long to wait before the next."
+  }
+]} />

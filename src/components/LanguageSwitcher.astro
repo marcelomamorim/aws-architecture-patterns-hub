@@ -1,0 +1,67 @@
+---
+import { switchLanguagePath } from "../lib/paths";
+import { languageLabels, type Language } from "../lib/site";
+
+interface Props {
+  currentLang: Language;
+  currentPath: string;
+}
+
+const { currentLang, currentPath } = Astro.props;
+const links = [
+  { lang: "pt" as const, href: switchLanguagePath(currentLang, "pt", currentPath), label: "PT" },
+  { lang: "en" as const, href: switchLanguagePath(currentLang, "en", currentPath), label: "EN" }
+];
+const navLabel = currentLang === "pt" ? "Seletor de idioma" : "Language switcher";
+const getLinkAriaLabel = (lang: Language) =>
+  currentLang === "pt" ? `Ir para ${languageLabels[lang]}` : `Go to ${languageLabels[lang]}`;
+---
+
+<nav class="language-switcher" aria-label={navLabel}>
+  {links.map((link) => (
+    <a
+      class:list={["language-option", { active: currentLang === link.lang }]}
+      href={link.href}
+      aria-current={currentLang === link.lang ? "page" : undefined}
+      aria-label={getLinkAriaLabel(link.lang)}
+      title={languageLabels[link.lang]}
+    >
+      {link.label}
+    </a>
+  ))}
+</nav>
+
+<style>
+  .language-switcher {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--floating);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .language-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.8rem;
+    min-height: 2.1rem;
+    padding: 0 0.55rem;
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .language-option:hover {
+    color: var(--primary);
+  }
+
+  .language-option.active {
+    background: var(--primary);
+    color: #fff;
+  }
+</style>

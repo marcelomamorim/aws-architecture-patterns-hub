@@ -1,0 +1,195 @@
+---
+lang: pt
+slug: queue-based-load-leveling
+title: "Queue-Based Load Leveling"
+summary: "Coloca uma fila entre produtor e consumidor para absorver picos, desacoplar ritmo de processamento e proteger o backend."
+category: resilience
+problemFocus: spike-buffering
+problem: "A carga chega em rajadas, o backend nao acompanha o mesmo ritmo e chamadas diretas passam a derrubar todo o fluxo."
+whenToUse:
+  - "Quando a demanda entra em picos maiores do que a capacidade de processamento imediata."
+  - "Quando o backend pode trabalhar assincronamente."
+  - "Quando voce precisa de buffer operacional e controle de retry."
+whenNotToUse:
+  - "Quando a resposta precisa ser sincronica no caminho do usuario."
+  - "Quando o workload nao tolera fila, atraso ou processamento eventual."
+  - "Quando o consumidor nao consegue lidar com idempotencia e reentrega."
+complexity: starter
+flowType: asynchronous
+tags:
+  - "fila"
+  - "buffer"
+  - "backpressure"
+  - "picos"
+awsServices:
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "competing-consumers"
+  - "retry-with-exponential-backoff"
+  - "bulkhead"
+media:
+  heroImage:
+    src: "/media/patterns/queue-based-load-leveling.svg"
+    alt: "Diagrama de produtores enviando trabalho para uma fila antes do consumo."
+    caption: "A fila desacopla taxa de chegada e taxa de processamento."
+  diagram:
+    src: "/media/patterns/queue-based-load-leveling.svg"
+    alt: "Diagrama de produtores enviando trabalho para uma fila antes do consumo."
+    caption: "A fila desacopla taxa de chegada e taxa de processamento."
+asciiDiagram:
+  title: "Queue-Based Load Leveling :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Queue-Based Load Leveling :: leitura rapida                    |
+    +----------------------------------------------------------------+
+    | [01] O produtor aceita a requisicao rapidamente                |
+    | -> O trabalho e persistido na fila, nao empurrado imediatam... |
+    | [02] A fila acumula backlog de forma controlada                |
+    | -> O sistema ganha um ponto explicito de backpressure e med... |
+    | [03] Consumidores drenam conforme capacidade                   |
+    | -> Escala horizontal ou concorrencia podem ser ajustadas co... |
+    | [04] Observabilidade orienta tuning                            |
+    | -> Lag, depth e idade da mensagem viram sinais operacionais... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SQS | AWS Lambda | Amazon ECS                    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "azure-queue-based-load-leveling"
+    title: "Queue-Based Load Leveling pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: conceptual
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling"
+  - id: "aws-wellarchitected-loose-coupling"
+    title: "REL04-BP02 Implement loosely coupled dependencies"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Well-Architected Framework"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_prevent_interaction_failure_loosely_coupled_system.html"
+  - id: "aws-lambda-sqs-configure"
+    title: "Creating and configuring an Amazon SQS event source mapping"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html"
+featured: false
+---
+
+## Conceito geral
+
+Queue-Based Load Leveling e o padrao mais direto para lidar com diferenca entre a velocidade de chegada de trabalho e a velocidade com que o sistema realmente consegue processar. <Cite ids={["azure-queue-based-load-leveling"]} />
+
+A fila funciona como amortecedor operacional: o front continua aceitando pedidos, enquanto os consumidores processam no ritmo sustentavel e observavel do backend. <Cite ids={["aws-wellarchitected-loose-coupling","aws-lambda-sqs-configure"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"A fila absorve o pico e estabiliza o consumo"} type="flowchart" code={"Ingress[\"API / Producers\"] --> Queue[\"Amazon SQS\"]\nQueue --> ConsumerA[\"Worker A\"]\nQueue --> ConsumerB[\"Worker B\"]\nQueue --> ConsumerC[\"Worker C\"]\nConsumerA --> Backend[\"Backend / DB\"]\nConsumerB --> Backend\nConsumerC --> Backend"} caption={"O backlog fica visivel na fila, e nao escondido em timeouts ou saturacao silenciosa do backend."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "O produtor aceita a requisicao rapidamente",
+    "description": "O trabalho e persistido na fila, nao empurrado imediatamente ao backend."
+  },
+  {
+    "title": "A fila acumula backlog de forma controlada",
+    "description": "O sistema ganha um ponto explicito de backpressure e medicao."
+  },
+  {
+    "title": "Consumidores drenam conforme capacidade",
+    "description": "Escala horizontal ou concorrencia podem ser ajustadas com seguranca."
+  },
+  {
+    "title": "Observabilidade orienta tuning",
+    "description": "Lag, depth e idade da mensagem viram sinais operacionais claros."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Resiliencia",
+    "benefit": "O backend fica protegido contra rajadas de trafego.",
+    "cost": "A resposta passa a ser eventual para parte do processamento."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "Backlog e throughput ficam mais visiveis.",
+    "cost": "DLQ, reprocessamento e idempotencia viram obrigatorios."
+  },
+  {
+    "area": "Escala",
+    "benefit": "Consumidores podem crescer conforme a fila pede.",
+    "cost": "Escalar sem controle pode mover o gargalo para outra camada."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "A carga chega em picos ou lotes.",
+  "O backend nao precisa responder imediatamente ao usuario final.",
+  "A operacao consegue medir backlog e latencia de fila."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "O time usa fila para esconder um fluxo que deveria continuar sincronico.",
+  "Nao existe DLQ nem politica de retry.",
+  "Os consumidores nao sao idempotentes."
+]} />
+
+<Callout title={"Sinal pratico"} tone="warning">
+  <p>Se o seu timeout atual esta funcionando como 'fila invisivel', provavelmente chegou a hora de tornar o buffer explicito. <Cite ids={["azure-queue-based-load-leveling","aws-wellarchitected-loose-coupling"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Uploads de documentos e geracao de thumbnails chegam em rajadas acima da capacidade media do pipeline."} services={[
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "A API grava unidades de trabalho em Amazon SQS imediatamente apos validar a entrada.",
+  "AWS Lambda ou workers em Amazon ECS drenam a fila conforme a concorrencia configurada.",
+  "CloudWatch monitora profundidade da fila, idade da mensagem e taxa de erro.",
+  "Mensagens irrecuperaveis seguem para DLQ para analise e replay controlado."
+]} />
+
+## Erros comuns
+
+- Ignorar a experiencia do usuario e nao comunicar que o processamento e assincrono.
+- Escalar consumidores sem observar limites do backend real.
+- Usar a fila sem estrategia para mensagens venenosas.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Queue-Based Load Leveling vs Competing Consumers",
+    "difference": "Load Leveling cria o buffer; Competing Consumers aumentam a vazao drenando esse buffer em paralelo."
+  },
+  {
+    "title": "Queue-Based Load Leveling vs Bulkhead",
+    "difference": "Load Leveling controla ritmo; Bulkhead isola capacidade entre grupos de trabalho."
+  }
+]} />

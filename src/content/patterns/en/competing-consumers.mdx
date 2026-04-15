@@ -1,0 +1,187 @@
+---
+lang: en
+slug: competing-consumers
+title: "Competing Consumers"
+summary: "Scales parallel consumption of the same queue by distributing messages across multiple independent workers."
+category: event-driven
+problemFocus: consumer-scale
+problem: "A single consumer cannot drain the backlog fast enough and the system throughput becomes limited by one worker."
+whenToUse:
+  - "When work can be processed in parallel without heavy global coordination."
+  - "When the queue already represents the right unit of work."
+  - "When you need more throughput without changing the producer."
+whenNotToUse:
+  - "When global ordering across the full queue must be preserved."
+  - "When processing depends on shared mutable state without protection."
+  - "When consumers are not idempotent."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "parallelism"
+  - "throughput"
+  - "workers"
+  - "queue"
+awsServices:
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "queue-based-load-leveling"
+  - "fanout"
+  - "idempotent-consumer"
+media: {}
+asciiDiagram:
+  title: "Competing Consumers :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Competing Consumers :: quick read                              |
+    +----------------------------------------------------------------+
+    | [01] The queue represents isolated work units                  |
+    | -> The message shape must support independent execution.       |
+    | [02] Several consumers compete for messages                    |
+    | -> Each worker pulls messages according to its own capacity.   |
+    | [03] Concurrency increases throughput                          |
+    | -> More workers drain backlog faster.                          |
+    | [04] Observability governs parallelism                         |
+    | -> Lag, error rate, and cost determine the healthy concurre... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SQS | AWS Lambda | Amazon ECS                    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-lambda-sqs-scaling"
+    title: "Configuring scaling behavior for SQS event source mappings"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html"
+  - id: "azure-competing-consumers"
+    title: "Competing Consumers pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/competing-consumers"
+featured: false
+---
+
+## General concept
+
+Competing Consumers increase throughput by placing multiple workers against the same message source, each processing a share of the backlog independently. <Cite ids={["hohpe-eip"]} />
+
+The gain comes from horizontal parallelism, but it only works well when the work unit can be isolated and the system accepts local ordering rather than one global sequence. <Cite ids={["aws-lambda-sqs-scaling","azure-competing-consumers"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Multiple workers drain the same queue"} type="flowchart" code={"Queue[\"Amazon SQS\"] --> Worker1[\"Worker 1\"]\nQueue --> Worker2[\"Worker 2\"]\nQueue --> Worker3[\"Worker 3\"]\nWorker1 --> Result[\"Processing\"]\nWorker2 --> Result\nWorker3 --> Result"} caption={"Each message goes to only one worker, increasing throughput without duplicating work."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The queue represents isolated work units",
+    "description": "The message shape must support independent execution."
+  },
+  {
+    "title": "Several consumers compete for messages",
+    "description": "Each worker pulls messages according to its own capacity."
+  },
+  {
+    "title": "Concurrency increases throughput",
+    "description": "More workers drain backlog faster."
+  },
+  {
+    "title": "Observability governs parallelism",
+    "description": "Lag, error rate, and cost determine the healthy concurrency range."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Scale",
+    "benefit": "Increases throughput without touching producers.",
+    "cost": "Global ordering and state affinity become harder."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Concurrency can scale up and down with backlog.",
+    "cost": "Debugging becomes more complex with many workers in flight."
+  },
+  {
+    "area": "Reliability",
+    "benefit": "A single worker failure does not stop all processing.",
+    "cost": "Idempotency and resource-level locking may be required."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Messages are independent from one another.",
+  "Backlog must drain faster than one worker can manage alone.",
+  "Concurrency, retry, and DLQ metrics exist."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The same entity is updated concurrently with no protection.",
+  "Global ordering is still assumed.",
+  "The team is scaling workers to hide poor payload design or inefficient processing."
+]} />
+
+<Callout title={"Design tip"} tone="warning">
+  <p>Before increasing concurrency, verify that the unit of work fits isolated processing and that the queue is really the correct parallelization point. <Cite ids={["hohpe-eip","aws-lambda-sqs-scaling"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A file-processing queue needs to reduce backlog during peak periods."} services={[
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "Amazon SQS holds the work items in a shared queue.",
+  "AWS Lambda or Amazon ECS tasks scale horizontally based on volume and configured maximum concurrency.",
+  "CloudWatch tracks age of oldest message, error rate, and throughput per worker.",
+  "DLQs and idempotency protect the system from retries and partial failures."
+]} />
+
+## Common mistakes
+
+- Assuming global ordering on a standard queue.
+- Scaling concurrency without reviewing downstream database or API limits.
+- Ignoring deduplication and idempotent processing.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Competing Consumers vs Fanout",
+    "difference": "Competing Consumers divide one backlog among workers; Fanout replicates an event to multiple destinations."
+  },
+  {
+    "title": "Competing Consumers vs Queue-Based Load Leveling",
+    "difference": "Load Leveling creates the buffer; Competing Consumers define how that buffer is drained in parallel."
+  }
+]} />

@@ -1,0 +1,194 @@
+---
+lang: en
+slug: cqrs
+title: "CQRS"
+summary: "Separates write commands and read queries so each side can optimize around different models, scale, and contracts."
+category: data
+problemFocus: data-consistency
+problem: "The same model is trying to support strict transactional validation and high-volume reads with very different shapes and latency expectations."
+whenToUse:
+  - "When read and write workloads demand different models and scaling paths."
+  - "When the read experience needs tailored projections for UI, reporting, or search."
+  - "When the domain requires explicit protection of write-side invariants."
+whenNotToUse:
+  - "When a simple CRUD model solves the problem with low operational cost."
+  - "When the team is not ready for eventual consistency and replay workflows."
+  - "When duplicated models do not provide a clear business gain."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "reads"
+  - "writes"
+  - "projections"
+  - "eventual consistency"
+awsServices:
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "AWS Lambda"
+  - "Amazon OpenSearch Service"
+relatedPatterns:
+  - "event-sourcing"
+  - "api-composition"
+  - "cache-aside"
+media:
+  heroImage:
+    src: "/media/patterns/cqrs.svg"
+    alt: "Diagram separating commands, the write model, projections, and the read model."
+    caption: "Read and write concerns evolve independently around the same domain."
+  diagram:
+    src: "/media/patterns/cqrs.svg"
+    alt: "Diagram separating commands, the write model, projections, and the read model."
+    caption: "Read and write concerns evolve independently around the same domain."
+asciiDiagram:
+  title: "CQRS :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | CQRS :: quick read                                             |
+    +----------------------------------------------------------------+
+    | [01] Commands enter the write side                             |
+    | -> Validation, authorization, and invariants stay close to...  |
+    | [02] Confirmed changes emit domain signals                     |
+    | -> Those changes feed the projection pipeline.                 |
+    | [03] Read models materialize specialized views                 |
+    | -> Each consumer receives the data shape it actually needs.    |
+    | [04] Queries hit the read side only                            |
+    | -> The interface no longer forces joins and heavy aggregati... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon DynamoDB | Amazon EventBridge | AWS Lambda       |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "fowler-cqrs"
+    title: "CQRS"
+    authors:
+      - "Martin Fowler"
+    year: 2011
+    publisher: "martinfowler.com"
+    type: article
+    role: conceptual
+    url: "https://martinfowler.com/bliki/CQRS.html"
+  - id: "aws-cqrs-pattern"
+    title: "CQRS pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/cqrs-pattern.html"
+  - id: "kleppmann-ddia"
+    title: "Designing Data-Intensive Applications"
+    authors:
+      - "Martin Kleppmann"
+    year: 2017
+    publisher: "O'Reilly Media"
+    type: book
+    role: complementary
+featured: true
+---
+
+## General concept
+
+CQRS usually appears when a single model is compromising too much on one side of the system: either writes lose clarity and invariant protection, or reads become slow and expensive to assemble. <Cite ids={["fowler-cqrs"]} />
+
+By separating command and query responsibilities, you can persist the domain rigorously while publishing changes into read projections shaped specifically for consumption. <Cite ids={["aws-cqrs-pattern","kleppmann-ddia"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Protected write side, optimized read side"} type="flowchart" code={"Client[\"Client / API\"] --> Commands[\"Commands\"]\nCommands --> Write[\"Write model\"]\nWrite --> Events[\"Domain events\"]\nEvents --> Projections[\"Projection pipeline\"]\nProjections --> Read[\"Read models\"]\nRead --> Queries[\"Queries / Search / Dashboards\"]"} caption={"The write path preserves domain rules; the read path exposes materialized views for fast consumption."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "Commands enter the write side",
+    "description": "Validation, authorization, and invariants stay close to the transactional model."
+  },
+  {
+    "title": "Confirmed changes emit domain signals",
+    "description": "Those changes feed the projection pipeline."
+  },
+  {
+    "title": "Read models materialize specialized views",
+    "description": "Each consumer receives the data shape it actually needs."
+  },
+  {
+    "title": "Queries hit the read side only",
+    "description": "The interface no longer forces joins and heavy aggregation on the critical path."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Performance",
+    "benefit": "Read and write paths can scale independently.",
+    "cost": "You operate multiple representations of the same domain."
+  },
+  {
+    "area": "Clarity",
+    "benefit": "The write side stays focused on intent and invariants.",
+    "cost": "The conceptual load rises for teams used to plain CRUD."
+  },
+  {
+    "area": "Consistency",
+    "benefit": "Read models can sit much closer to the final experience.",
+    "cost": "The architecture must embrace and observe eventual consistency."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Some views or queries are too expensive in the transactional model.",
+  "The domain contains important write invariants worth protecting explicitly.",
+  "The team can rebuild projections and handle read lag operationally."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "CQRS is being introduced as an architecture trend instead of a problem-driven choice.",
+  "There is no replay or rebuild strategy for read models.",
+  "Stakeholders still expect instantly consistent reads in every case."
+]} />
+
+<Callout title={"Important nuance"} tone="warning">
+  <p>CQRS does not require Event Sourcing, but it pairs well with event-driven flows when projections need to be rebuilt or specialized repeatedly. <Cite ids={["fowler-cqrs","kleppmann-ddia"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Order platform with transactional APIs, operational search, and read-heavy dashboards."} services={[
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "AWS Lambda",
+  "Amazon OpenSearch Service"
+]} implementation={[
+  "Commands reach an API that persists aggregates in Amazon DynamoDB.",
+  "Domain events are emitted to Amazon EventBridge after the validated write.",
+  "AWS Lambda updates dedicated projection tables or Amazon OpenSearch Service indexes.",
+  "Query APIs point only to the read side, keeping the transactional model isolated."
+]} />
+
+## Common mistakes
+
+- Duplicating the same schema on the read side and losing the main benefit of the pattern.
+- Mixing heavy business logic into the projection pipeline.
+- Ignoring read lag metrics and recovery paths.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "CQRS vs Cache-Aside",
+    "difference": "Cache-Aside accelerates an existing model; CQRS creates a dedicated read model on purpose."
+  },
+  {
+    "title": "CQRS vs API Composition",
+    "difference": "CQRS materializes read views ahead of time; API Composition joins data on demand."
+  }
+]} />

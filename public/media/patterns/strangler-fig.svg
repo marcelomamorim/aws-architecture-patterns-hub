@@ -1,0 +1,17 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="140" y="250" width="220" height="220" rx="28" fill="#10262E" stroke="#CF7A6B"/>
+  <rect x="500" y="120" width="220" height="140" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="500" y="290" width="220" height="140" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="500" y="460" width="220" height="140" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="860" y="250" width="210" height="220" rx="28" fill="#12303A" stroke="#5BD0BF"/>
+  <path d="M360 360H500" stroke="#CF7A6B" stroke-width="3"/>
+  <path d="M720 190H860" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M720 360H860" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M720 530H860" stroke="#5BD0BF" stroke-width="3"/>
+  <text x="188" y="348" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Legacy</text>
+  <text x="536" y="198" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">New API</text>
+  <text x="552" y="368" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">New read</text>
+  <text x="548" y="538" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">New write</text>
+  <text x="922" y="360" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Facade / Router</text>
+</svg>

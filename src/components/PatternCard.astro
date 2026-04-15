@@ -1,0 +1,161 @@
+---
+import {
+  categoryLabels,
+  complexityLabels,
+  type Language
+} from "../lib/site";
+import { localizedPath } from "../lib/paths";
+import type { PatternEntry } from "../lib/patterns";
+
+interface Props {
+  pattern: PatternEntry;
+  lang: Language;
+}
+
+const { pattern, lang } = Astro.props;
+const complexityTone =
+  pattern.data.complexity === "starter"
+    ? "starter"
+    : pattern.data.complexity === "intermediate"
+      ? "intermediate"
+      : "advanced";
+---
+
+<article class="pattern-card">
+  <a class="pattern-link" href={localizedPath(lang, `patterns/${pattern.data.slug}`)}>
+    <div class="pattern-head">
+      <div class="pattern-tags">
+        <span class="tag">{categoryLabels[lang][pattern.data.category]}</span>
+        <span class:list={["tag", "complexity", complexityTone]}>{complexityLabels[lang][pattern.data.complexity]}</span>
+      </div>
+      {pattern.data.featured && <span class="featured-marker" aria-hidden="true">★</span>}
+    </div>
+    <div class="pattern-content">
+      <h3>{pattern.data.title}</h3>
+      <p>{pattern.data.summary}</p>
+      <div class="service-row">
+        {pattern.data.awsServices.slice(0, 3).map((service) => <span>{service}</span>)}
+      </div>
+      <span class="pattern-action">{lang === "pt" ? "Ler padrão" : "Read pattern"} →</span>
+    </div>
+  </a>
+</article>
+
+<style>
+  .pattern-card {
+    height: 100%;
+  }
+
+  .pattern-link {
+    display: grid;
+    height: 100%;
+    gap: 1rem;
+    padding: 1.3rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(29, 31, 53, 0.72), rgba(18, 19, 35, 0.92));
+    transition:
+      transform 220ms ease,
+      border-color 220ms ease,
+      box-shadow 220ms ease;
+  }
+
+  .pattern-link:hover {
+    transform: translateY(-4px);
+    border-color: rgba(var(--primary-rgb), 0.35);
+    box-shadow:
+      0 0 0 1px rgba(var(--primary-rgb), 0.14),
+      0 0 26px rgba(var(--primary-rgb), 0.12),
+      var(--shadow);
+  }
+
+  .pattern-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
+
+  .pattern-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.32rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tag.complexity.starter {
+    color: var(--success);
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(52, 211, 153, 0.1);
+  }
+
+  .tag.complexity.intermediate {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.26);
+    background: rgba(251, 191, 36, 0.1);
+  }
+
+  .tag.complexity.advanced {
+    color: var(--danger);
+    border-color: rgba(248, 113, 113, 0.24);
+    background: rgba(248, 113, 113, 0.1);
+  }
+
+  .featured-marker {
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  .pattern-content {
+    display: grid;
+    gap: 0.95rem;
+  }
+
+  .pattern-content h3 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-family: "Space Grotesk Variable", sans-serif;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+  }
+
+  .pattern-content p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  .service-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .service-row span {
+    display: inline-flex;
+    padding: 0.38rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-family: "Space Grotesk Variable", sans-serif;
+  }
+
+  .pattern-action {
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+</style>

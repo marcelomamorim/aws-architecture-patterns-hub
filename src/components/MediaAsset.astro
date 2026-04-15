@@ -1,0 +1,80 @@
+---
+interface MediaAsset {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+interface Props {
+  media: {
+    heroImage?: MediaAsset;
+    animation?: MediaAsset;
+    diagram?: MediaAsset;
+    videoPoster?: string;
+  };
+  label?: string;
+}
+
+const { media, label } = Astro.props;
+const preferred = media.animation ?? media.diagram ?? media.heroImage;
+const src = preferred?.src;
+const isVideo = Boolean(src && /\.(mp4|webm|ogg)$/i.test(src));
+const poster = isVideo ? media.videoPoster : undefined;
+---
+
+{preferred && (
+  <figure class="media-frame">
+    <div class="media-shell">
+      {isVideo ? (
+        <video autoplay loop muted playsinline controls poster={poster} aria-label={preferred.alt}>
+          <source src={preferred.src} />
+        </video>
+      ) : (
+        <img src={preferred.src} alt={preferred.alt} loading="lazy" />
+      )}
+    </div>
+
+    {(label || preferred.caption) && (
+      <figcaption>
+        {label && <strong>{label}</strong>}
+        {preferred.caption && <span>{preferred.caption}</span>}
+      </figcaption>
+    )}
+  </figure>
+)}
+
+<style>
+  .media-frame {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .media-shell {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .media-frame img,
+  .media-frame video {
+    width: 100%;
+    min-height: 100%;
+    object-fit: cover;
+  }
+
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  figcaption strong {
+    color: var(--text-soft);
+    font-weight: 600;
+  }
+</style>

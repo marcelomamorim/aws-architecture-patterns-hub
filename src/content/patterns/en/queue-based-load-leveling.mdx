@@ -1,0 +1,195 @@
+---
+lang: en
+slug: queue-based-load-leveling
+title: "Queue-Based Load Leveling"
+summary: "Places a queue between producer and consumer to absorb bursts, decouple processing pace, and protect the backend."
+category: resilience
+problemFocus: spike-buffering
+problem: "Traffic arrives in spikes, the backend cannot keep up at the same pace, and direct calls start taking the entire flow down."
+whenToUse:
+  - "When demand arrives in spikes larger than immediate processing capacity."
+  - "When the backend can work asynchronously."
+  - "When you need an operational buffer and explicit retry control."
+whenNotToUse:
+  - "When the response must remain synchronous in the user path."
+  - "When the workload cannot tolerate queuing or eventual processing."
+  - "When the consumer cannot safely handle redelivery."
+complexity: starter
+flowType: asynchronous
+tags:
+  - "queue"
+  - "buffer"
+  - "backpressure"
+  - "spikes"
+awsServices:
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "competing-consumers"
+  - "retry-with-exponential-backoff"
+  - "bulkhead"
+media:
+  heroImage:
+    src: "/media/patterns/queue-based-load-leveling.svg"
+    alt: "Diagram showing producers sending work into a queue before consumers process it."
+    caption: "The queue decouples arrival rate from processing rate."
+  diagram:
+    src: "/media/patterns/queue-based-load-leveling.svg"
+    alt: "Diagram showing producers sending work into a queue before consumers process it."
+    caption: "The queue decouples arrival rate from processing rate."
+asciiDiagram:
+  title: "Queue-Based Load Leveling :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Queue-Based Load Leveling :: quick read                        |
+    +----------------------------------------------------------------+
+    | [01] The producer accepts work quickly                         |
+    | -> The job is persisted in the queue instead of pushed stra... |
+    | [02] The queue accumulates controlled backlog                  |
+    | -> The system gains an explicit backpressure point and meas... |
+    | [03] Consumers drain according to capacity                     |
+    | -> Horizontal scale and concurrency can be tuned safely.       |
+    | [04] Observability drives tuning                               |
+    | -> Lag, depth, and message age become clear operational sig... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SQS | AWS Lambda | Amazon ECS                    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "azure-queue-based-load-leveling"
+    title: "Queue-Based Load Leveling pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: conceptual
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling"
+  - id: "aws-wellarchitected-loose-coupling"
+    title: "REL04-BP02 Implement loosely coupled dependencies"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Well-Architected Framework"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_prevent_interaction_failure_loosely_coupled_system.html"
+  - id: "aws-lambda-sqs-configure"
+    title: "Creating and configuring an Amazon SQS event source mapping"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html"
+featured: false
+---
+
+## General concept
+
+Queue-Based Load Leveling is the most direct pattern for handling the gap between how fast work arrives and how fast the system can actually process it. <Cite ids={["azure-queue-based-load-leveling"]} />
+
+The queue becomes an operational shock absorber: the front door keeps accepting work while consumers drain at the sustainable pace of the backend. <Cite ids={["aws-wellarchitected-loose-coupling","aws-lambda-sqs-configure"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"The queue absorbs bursts and stabilizes processing"} type="flowchart" code={"Ingress[\"API / Producers\"] --> Queue[\"Amazon SQS\"]\nQueue --> ConsumerA[\"Worker A\"]\nQueue --> ConsumerB[\"Worker B\"]\nQueue --> ConsumerC[\"Worker C\"]\nConsumerA --> Backend[\"Backend / DB\"]\nConsumerB --> Backend\nConsumerC --> Backend"} caption={"Backlog becomes visible in the queue instead of hiding behind timeouts and silent backend saturation."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The producer accepts work quickly",
+    "description": "The job is persisted in the queue instead of pushed straight into the backend."
+  },
+  {
+    "title": "The queue accumulates controlled backlog",
+    "description": "The system gains an explicit backpressure point and measurement surface."
+  },
+  {
+    "title": "Consumers drain according to capacity",
+    "description": "Horizontal scale and concurrency can be tuned safely."
+  },
+  {
+    "title": "Observability drives tuning",
+    "description": "Lag, depth, and message age become clear operational signals."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Resilience",
+    "benefit": "The backend is protected from sudden bursts.",
+    "cost": "Part of the response becomes eventually processed."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Backlog and throughput are easier to observe.",
+    "cost": "DLQ handling, replay, and idempotency become mandatory."
+  },
+  {
+    "area": "Scale",
+    "benefit": "Consumers can grow as the queue demands.",
+    "cost": "Blindly scaling consumers can simply move the bottleneck elsewhere."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Traffic arrives in spikes or batches.",
+  "The backend does not need to complete work inside the synchronous user path.",
+  "The team can measure backlog and queue latency operationally."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The queue is being used to hide a flow that should stay synchronous.",
+  "There is no DLQ or retry policy.",
+  "Consumers are not idempotent."
+]} />
+
+<Callout title={"Practical signal"} tone="warning">
+  <p>If timeouts are acting as an invisible queue today, it is usually time to make the buffer explicit. <Cite ids={["azure-queue-based-load-leveling","aws-wellarchitected-loose-coupling"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Document uploads and thumbnail generation arrive in bursts above the average pipeline capacity."} services={[
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "The API writes work items to Amazon SQS right after validating the request.",
+  "AWS Lambda or Amazon ECS workers drain the queue according to configured concurrency.",
+  "CloudWatch tracks queue depth, age of oldest message, and error rate.",
+  "Unrecoverable messages flow to a DLQ for analysis and controlled replay."
+]} />
+
+## Common mistakes
+
+- Ignoring user experience and failing to communicate that processing is asynchronous.
+- Scaling consumers without observing real backend limits.
+- Using a queue without a plan for poison messages.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Queue-Based Load Leveling vs Competing Consumers",
+    "difference": "Load Leveling creates the buffer; Competing Consumers increase throughput by draining that buffer in parallel."
+  },
+  {
+    "title": "Queue-Based Load Leveling vs Bulkhead",
+    "difference": "Load Leveling controls pace; Bulkhead isolates capacity between work pools."
+  }
+]} />

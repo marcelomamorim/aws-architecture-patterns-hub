@@ -1,0 +1,187 @@
+---
+lang: pt
+slug: timeout
+title: "Timeout"
+summary: "Define um limite maximo de espera para chamadas e tarefas, evitando recursos presos e latencia sem fim."
+category: resilience
+problemFocus: fault-isolation
+problem: "Sem um limite claro de espera, chamadas lentas consomem conexoes, threads e concorrencia ate degradar o servico inteiro."
+whenToUse:
+  - "Quando ha chamadas remotas, I/O ou tarefas que podem travar por mais tempo do que o aceitavel."
+  - "Quando o servico precisa proteger seu proprio budget de latencia."
+  - "Quando downstreams tem variacao relevante de resposta."
+whenNotToUse:
+  - "Quando o fluxo ainda nao sabe qual latencia maxima e aceitavel para o usuario."
+  - "Quando o timeout e usado sem retry, fallback ou observabilidade adequada."
+  - "Quando o valor escolhido e puramente arbitrario e nunca revisado."
+complexity: starter
+flowType: synchronous
+tags:
+  - "timeout"
+  - "latencia"
+  - "protecao"
+  - "fail-fast"
+awsServices:
+  - "AWS Lambda"
+  - "AWS Step Functions"
+  - "Amazon API Gateway"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "retry-with-exponential-backoff"
+  - "circuit-breaker"
+  - "bulkhead"
+media: {}
+asciiDiagram:
+  title: "Timeout :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Timeout :: leitura rapida                                      |
+    +----------------------------------------------------------------+
+    | [01] A chamada inicia com budget de tempo definido             |
+    | -> O limite deve refletir a experiencia aceitavel e o histo... |
+    | [02] A resposta nao chega no tempo esperado                    |
+    | -> O chamador encerra a tentativa em vez de esperar indefin... |
+    | [03] Recursos locais sao liberados                             |
+    | -> Threads, conexoes e slots de concorrencia voltam para o...  |
+    | [04] A aplicacao decide o proximo passo                        |
+    | -> Retry, fallback, fila ou erro controlado entram de forma... |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Lambda | AWS Step Functions | Amazon API Gateway    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "aws-builders-timeouts-retries"
+    title: "Timeouts, retries, and backoff with jitter"
+    authors:
+      - "Marc Brooker"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: conceptual
+    url: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+  - id: "aws-stepfunctions-best-practices"
+    title: "Best practices for Step Functions"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html"
+  - id: "aws-lambda-timeout"
+    title: "Configure Lambda function timeout"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html"
+featured: false
+---
+
+## Conceito geral
+
+Timeout e uma das protecoes mais basicas em sistemas distribuidos: ele define por quanto tempo vale a pena esperar antes de concluir que a tentativa falhou. <Cite ids={["aws-builders-timeouts-retries"]} />
+
+Sem esse limite, o sistema fica preso em chamadas que talvez nunca retornem, consumindo capacidade que deveria estar disponivel para outras operacoes. <Cite ids={["aws-stepfunctions-best-practices","aws-lambda-timeout"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Uma tentativa nao pode esperar para sempre"} type="sequenceDiagram" code={"participant Caller\nparticipant Downstream\nCaller->>Downstream: Request\nNote over Caller: Start timeout budget\nDownstream--xCaller: No response in time\nCaller->>Caller: Abort call / release resources\nCaller-->>Caller: Trigger fallback or retry policy"} caption={"O timeout encerra a tentativa e devolve o controle para que a aplicacao decida o proximo passo."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A chamada inicia com budget de tempo definido",
+    "description": "O limite deve refletir a experiencia aceitavel e o historico do downstream."
+  },
+  {
+    "title": "A resposta nao chega no tempo esperado",
+    "description": "O chamador encerra a tentativa em vez de esperar indefinidamente."
+  },
+  {
+    "title": "Recursos locais sao liberados",
+    "description": "Threads, conexoes e slots de concorrencia voltam para o pool."
+  },
+  {
+    "title": "A aplicacao decide o proximo passo",
+    "description": "Retry, fallback, fila ou erro controlado entram de forma consciente."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Protecao",
+    "benefit": "Evita recursos presos em chamadas lentas.",
+    "cost": "Timeout curto demais aumenta falso negativo e retries desnecessarios."
+  },
+  {
+    "area": "Experiencia",
+    "benefit": "Mantem o budget de latencia sob controle.",
+    "cost": "O usuario pode receber falha mais cedo."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "Ajuda a expor dependencias lentas com mais clareza.",
+    "cost": "Escolher o valor certo exige metrica e calibracao continua."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Existem dependencias remotas ou tarefas longas no caminho critico.",
+  "O time conhece a latencia maxima aceitavel para o cliente.",
+  "Timeouts sao acompanhados por metricas e alarmes."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Nao ha diferenca entre timeout de conexao e de resposta.",
+  "O valor foi escolhido no chute e nunca reavaliado.",
+  "Nao existe acao definida depois do timeout."
+]} />
+
+<Callout title={"Ajuste fino"} tone="warning">
+  <p>Timeout bom nao nasce de palpite; ele nasce de percentis reais de latencia, custo de retry e experiencia maxima aceitavel para o usuario. <Cite ids={["aws-builders-timeouts-retries","aws-stepfunctions-best-practices"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Servico sincronico consulta dependencia interna e precisa proteger o proprio budget de resposta."} services={[
+  "AWS Lambda",
+  "AWS Step Functions",
+  "Amazon API Gateway",
+  "Amazon CloudWatch"
+]} implementation={[
+  "AWS Step Functions define TimeoutSeconds e HeartbeatSeconds para tarefas que nao podem ficar presas.",
+  "AWS Lambda usa timeout coerente com o trabalho real e com a experiencia desejada no chamador.",
+  "Amazon API Gateway limita o tempo de integracao, forcando desenho assincrono quando o backend demora demais.",
+  "CloudWatch alerta quando timeouts ultrapassam o padrao normal."
+]} />
+
+## Erros comuns
+
+- Configurar timeout alto demais e chamar isso de resiliencia.
+- Esquecer que retry tambem consome o mesmo budget de latencia.
+- Nao diferenciar operacoes baratas e caras na mesma politica.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Timeout vs Retry with Exponential Backoff",
+    "difference": "Timeout decide quando desistir da tentativa atual; Retry define como e quando tentar de novo."
+  },
+  {
+    "title": "Timeout vs Circuit Breaker",
+    "difference": "Timeout protege uma chamada individual; Circuit Breaker reage ao comportamento agregado de varias chamadas."
+  }
+]} />

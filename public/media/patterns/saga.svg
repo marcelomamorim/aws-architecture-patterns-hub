@@ -1,0 +1,21 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <circle cx="240" cy="360" r="92" fill="#12303A" stroke="#5BD0BF" stroke-width="3"/>
+  <circle cx="500" cy="200" r="82" fill="#10262E" stroke="#E2B46F" stroke-width="3"/>
+  <circle cx="500" cy="520" r="82" fill="#10262E" stroke="#E2B46F" stroke-width="3"/>
+  <circle cx="810" cy="200" r="82" fill="#10262E" stroke="#5BD0BF" stroke-width="3"/>
+  <circle cx="810" cy="520" r="82" fill="#10262E" stroke="#5BD0BF" stroke-width="3"/>
+  <circle cx="1030" cy="360" r="70" fill="#10262E" stroke="#CF7A6B" stroke-width="3"/>
+  <path d="M332 330L432 240" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M332 390L432 480" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M582 200H728" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M582 520H728" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M892 240L982 320" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M892 480L982 400" stroke="#5BD0BF" stroke-width="3"/>
+  <text x="182" y="368" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Start</text>
+  <text x="440" y="208" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Reserve</text>
+  <text x="450" y="528" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Charge</text>
+  <text x="756" y="208" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Ship</text>
+  <text x="740" y="528" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Notify</text>
+  <text x="980" y="368" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Compensate</text>
+</svg>

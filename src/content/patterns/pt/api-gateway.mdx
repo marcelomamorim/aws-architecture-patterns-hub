@@ -1,0 +1,187 @@
+---
+lang: pt
+slug: api-gateway
+title: "API Gateway"
+summary: "Concentra preocupacoes de borda como autenticacao, roteamento, versionamento e observabilidade atras de uma interface unica."
+category: modernization
+problemFocus: api-abstraction
+problem: "Clientes precisam lidar com muitos servicos, protocolos e regras transversais diferentes, aumentando acoplamento e atrito de consumo."
+whenToUse:
+  - "Quando varios servicos precisam ser expostos como uma experiencia de API coerente."
+  - "Quando autenticacao, limite, observabilidade e roteamento precisam de um ponto comum."
+  - "Quando clientes web, mobile ou parceiros externos pedem uma fachada estavel."
+whenNotToUse:
+  - "Quando o gateway passa a concentrar regra de negocio pesada."
+  - "Quando um unico servico simples nao precisa de camada de borda dedicada."
+  - "Quando a equipe pretende esconder todos os problemas internos atras do gateway."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "borda"
+  - "fachada"
+  - "roteamento"
+  - "governanca"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon CloudFront"
+  - "Amazon Cognito"
+relatedPatterns:
+  - "strangler-fig"
+  - "api-composition"
+  - "rate-limiting"
+media: {}
+asciiDiagram:
+  title: "API Gateway :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | API Gateway :: leitura rapida                                  |
+    +----------------------------------------------------------------+
+    | [01] O cliente fala com uma unica porta de entrada             |
+    | -> A borda mascara a topologia e a distribuicao interna.       |
+    | [02] Politicas comuns sao aplicadas na borda                   |
+    | -> Auth, rate limiting, observabilidade e transformacao fic... |
+    | [03] O gateway roteia para os servicos corretos                |
+    | -> Cada backend continua dono da sua regra e dado.             |
+    | [04] Clientes recebem uma API mais estavel                     |
+    | -> Mudancas internas podem ser absorvidas sem quebrar consu... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon CloudFront     |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "microservices-api-gateway"
+    title: "Pattern: API Gateway / Backends for Frontends"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/apigateway"
+  - id: "aws-api-gateway-welcome"
+    title: "What is Amazon API Gateway?"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html"
+  - id: "aws-api-gateway-usage-plans"
+    title: "Usage plans and API keys for REST APIs in API Gateway"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html"
+featured: true
+---
+
+## Conceito geral
+
+O padrao API Gateway cria uma fachada na borda para reduzir o acoplamento dos clientes com a topologia interna e centralizar politicas transversais. <Cite ids={["microservices-api-gateway"]} />
+
+Ele simplifica autenticacao, versionamento, observabilidade e roteamento, desde que o time resista a tentacao de transformar o gateway em um novo monolito de negocio. <Cite ids={["aws-api-gateway-welcome","aws-api-gateway-usage-plans"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Uma interface de borda para varios servicos"} type="flowchart" code={"Clients[\"Web / Mobile / Partners\"] --> Gateway[\"API Gateway\"]\nGateway --> Orders[\"Orders service\"]\nGateway --> Catalog[\"Catalog service\"]\nGateway --> Auth[\"Auth service\"]\nGateway --> BFF[\"BFF / Lambda adapter\"]"} caption={"O cliente conversa com uma fachada coerente enquanto o gateway aplica politicas comuns e rotea para os donos corretos."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "O cliente fala com uma unica porta de entrada",
+    "description": "A borda mascara a topologia e a distribuicao interna."
+  },
+  {
+    "title": "Politicas comuns sao aplicadas na borda",
+    "description": "Auth, rate limiting, observabilidade e transformacao ficam centralizados."
+  },
+  {
+    "title": "O gateway roteia para os servicos corretos",
+    "description": "Cada backend continua dono da sua regra e dado."
+  },
+  {
+    "title": "Clientes recebem uma API mais estavel",
+    "description": "Mudancas internas podem ser absorvidas sem quebrar consumidores externos."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Experiencia",
+    "benefit": "Reduz complexidade para clientes e parceiros.",
+    "cost": "O gateway vira componente critico da plataforma."
+  },
+  {
+    "area": "Governanca",
+    "benefit": "Centraliza politicas de borda.",
+    "cost": "O risco de concentrar logica demais aumenta."
+  },
+  {
+    "area": "Evolucao",
+    "benefit": "Protege clientes de mudancas internas frequentes.",
+    "cost": "Times precisam manter ownership claro entre gateway e servicos."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Ha varios backends e clientes diferentes consumindo a plataforma.",
+  "Regras transversais merecem centralizacao.",
+  "O time consegue manter o gateway focado em borda."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "O gateway esta acumulando regra de negocio, joins e persistencia.",
+  "Todas as equipes dependem de uma unica squad para qualquer mudanca simples.",
+  "Nao ha observabilidade para separar falha do gateway e falha do backend."
+]} />
+
+<Callout title={"Limite saudavel"} tone="warning">
+  <p>API Gateway deve orquestrar preocupacoes de borda; quando ele passa a decidir negocio, o acoplamento apenas muda de lugar. <Cite ids={["microservices-api-gateway","aws-api-gateway-welcome"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Plataforma expoe APIs para web, mobile e parceiros com diferentes politicas de autenticacao e throttling."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon CloudFront",
+  "Amazon Cognito"
+]} implementation={[
+  "Amazon API Gateway publica uma fachada unica para rotas internas e externas.",
+  "Autenticacao pode ser integrada com Amazon Cognito, custom authorizers ou IAM.",
+  "AWS Lambda funciona bem como adaptador leve para BFFs ou transformacoes pequenas na borda.",
+  "CloudFront, throttling e usage plans protegem a experiencia e o backend."
+]} />
+
+## Erros comuns
+
+- Empurrar composicao pesada e regra de negocio para o gateway.
+- Criar uma fachada tao generica que nao atende bem nenhum cliente.
+- Esquecer que disponibilidade da borda vira disponibilidade do produto.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "API Gateway vs API Composition",
+    "difference": "API Gateway e a fachada de borda; API Composition e uma tecnica de juntar dados para responder consultas."
+  },
+  {
+    "title": "API Gateway vs Strangler Fig",
+    "difference": "API Gateway e um componente; Strangler Fig e a estrategia de migracao que pode usar esse componente."
+  }
+]} />

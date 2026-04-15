@@ -1,0 +1,195 @@
+---
+lang: en
+slug: strangler-fig
+title: "Strangler Fig"
+summary: "Modernizes a legacy system through gradual replacement, with a proxy governing how traffic is split between old and new."
+category: modernization
+problemFocus: incremental-migration
+problem: "Rewriting everything at once is too risky, but the legacy system no longer supports safe business evolution."
+whenToUse:
+  - "When the monolith or legacy system still carries business value and cannot be stopped abruptly."
+  - "When you can isolate capabilities or flows to migrate incrementally."
+  - "When the team needs to reduce risk and validate each cut in production."
+whenNotToUse:
+  - "When there is no minimal boundary between old and new capabilities."
+  - "When the team cannot observe and govern routing between the two worlds."
+  - "When gradual rewriting would only add more coupling with no retirement plan."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "modernization"
+  - "proxy"
+  - "legacy"
+  - "incremental migration"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon EventBridge"
+relatedPatterns:
+  - "api-gateway"
+  - "cqrs"
+  - "database-per-service"
+media:
+  heroImage:
+    src: "/media/patterns/strangler-fig.svg"
+    alt: "Diagram with a proxy routing some traffic to the legacy system and some to new services."
+    caption: "The new system gradually surrounds the old one until it can replace it."
+  diagram:
+    src: "/media/patterns/strangler-fig.svg"
+    alt: "Diagram with a proxy routing some traffic to the legacy system and some to new services."
+    caption: "The new system gradually surrounds the old one until it can replace it."
+asciiDiagram:
+  title: "Strangler Fig :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Strangler Fig :: quick read                                    |
+    +----------------------------------------------------------------+
+    | [01] The fa ade receives all traffic                           |
+    | -> It becomes the single point of control for cuts, tests,...  |
+    | [02] One capability is extracted from the legacy system        |
+    | -> The new flow becomes responsible for a clear slice only.    |
+    | [03] Data and integrations are aligned                         |
+    | -> Events, synchronization, and contracts keep duplication...  |
+    | [04] Legacy surface area shrinks over time                     |
+    | -> Each cut reduces the old system until retirement becomes... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon ECS            |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "fowler-strangler"
+    title: "Strangler Fig Application"
+    authors:
+      - "Martin Fowler"
+    year: 2004
+    publisher: "martinfowler.com"
+    type: article
+    role: conceptual
+    url: "https://martinfowler.com/bliki/StranglerFigApplication.html"
+  - id: "aws-strangler-fig"
+    title: "Strangler fig pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/strangler-fig.html"
+  - id: "aws-api-gateway-welcome"
+    title: "What is Amazon API Gateway?"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html"
+featured: true
+---
+
+## General concept
+
+Strangler Fig starts from the idea that safe modernization rarely happens as a big bang; it depends on small, observable, and reversible cuts. <Cite ids={["fowler-strangler"]} />
+
+A proxy or façade layer governs where each request goes, allowing one flow at a time to move while the legacy platform still serves the rest of the business. <Cite ids={["aws-strangler-fig","aws-api-gateway-welcome"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"The proxy governs migration by capability slice"} type="flowchart" code={"Clients[\"Consumers\"] --> Gateway[\"API Gateway / Proxy\"]\nGateway --> Legacy[\"Legacy system\"]\nGateway --> NewOrder[\"New order service\"]\nGateway --> NewCatalog[\"New catalog service\"]\nNewOrder --> Events[\"Domain events\"]\nEvents --> Legacy"} caption={"Replacement happens by business flow, not through a full rewrite in one move."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The façade receives all traffic",
+    "description": "It becomes the single point of control for cuts, tests, and rollback."
+  },
+  {
+    "title": "One capability is extracted from the legacy system",
+    "description": "The new flow becomes responsible for a clear slice only."
+  },
+  {
+    "title": "Data and integrations are aligned",
+    "description": "Events, synchronization, and contracts keep duplication under control."
+  },
+  {
+    "title": "Legacy surface area shrinks over time",
+    "description": "Each cut reduces the old system until retirement becomes realistic."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Risk",
+    "benefit": "Enables incremental migration with simpler rollback.",
+    "cost": "Two worlds must be operated during the transition."
+  },
+  {
+    "area": "Architecture",
+    "benefit": "Forces clearer business boundaries.",
+    "cost": "Data ownership and observability become temporarily more complex."
+  },
+  {
+    "area": "Delivery",
+    "benefit": "Each slice can deliver value before the entire modernization finishes.",
+    "cost": "Without discipline, the transition can drag on and become permanent limbo."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The legacy platform cannot be turned off in one move.",
+  "There are domain slices with at least some separable boundary.",
+  "There is governance for routing, duplication, and migration cuts."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "No retirement criteria exist for the old path.",
+  "The proxy is becoming a new accidental business-logic monolith.",
+  "There is no telemetry to compare old and new behavior."
+]} />
+
+<Callout title={"Transition discipline"} tone="warning">
+  <p>Strangler Fig only works when every migration step closes a replacement commitment instead of adding yet another layer on top of the legacy system. <Cite ids={["fowler-strangler","aws-strangler-fig"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A legacy ordering platform needs to move to smaller services without breaking external clients."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon EventBridge"
+]} implementation={[
+  "Amazon API Gateway becomes the external façade and controls routing by route, version, or client segment.",
+  "Extracted flows run on AWS Lambda or Amazon ECS while the legacy platform keeps serving the rest.",
+  "Events published through Amazon EventBridge synchronize relevant state during coexistence.",
+  "Route-level observability shows when a flow is ready to retire its legacy counterpart."
+]} />
+
+## Common mistakes
+
+- Extracting technically without clarifying business ownership and boundaries.
+- Never shutting down the old path after the new one stabilizes.
+- Turning the façade into a new integration monolith.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Strangler Fig vs Big Bang Rewrite",
+    "difference": "Strangler Fig spreads risk and delivers value by slice; a big bang rewrite concentrates risk and validation at the end."
+  },
+  {
+    "title": "Strangler Fig vs API Gateway",
+    "difference": "API Gateway is an edge capability; Strangler Fig is the modernization strategy that often uses that capability."
+  }
+]} />

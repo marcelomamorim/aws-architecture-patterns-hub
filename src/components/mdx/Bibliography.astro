@@ -1,0 +1,101 @@
+---
+import { formatReference, type PatternReference } from "../../lib/references";
+
+interface Props {
+  title: string;
+  references: PatternReference[];
+}
+
+const { title, references } = Astro.props;
+---
+
+<section class="bibliography-block">
+  <h2>{title}</h2>
+  <ol class="bibliography-list">
+    {references.map((reference, index) => (
+      <li id={`ref-${reference.id}`}>
+        <span class="reference-index">[{index + 1}]</span>
+        <div class="reference-copy">
+          <p>{formatReference(reference)}</p>
+          <div class="reference-meta">
+            <span>{reference.type}</span>
+            <span>{reference.role}</span>
+            {reference.url && (
+              <a href={reference.url} target="_blank" rel="noreferrer">
+                {reference.url}
+              </a>
+            )}
+          </div>
+        </div>
+      </li>
+    ))}
+  </ol>
+</section>
+
+<style>
+  .bibliography-block {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .bibliography-block h2 {
+    margin: 0;
+  }
+
+  .bibliography-list {
+    display: grid;
+    gap: 0.8rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .bibliography-list li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    scroll-margin-top: 6rem;
+  }
+
+  .reference-index {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .reference-copy {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .reference-copy p {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+
+  .reference-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  .reference-meta span {
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    background: var(--surface-strong);
+  }
+
+  .reference-meta a {
+    color: var(--primary);
+    overflow-wrap: anywhere;
+  }
+</style>

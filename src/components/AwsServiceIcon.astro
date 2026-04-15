@@ -1,0 +1,65 @@
+---
+import { withBasePath } from "../lib/paths";
+import { resolveAwsServiceIcon, type AwsIconSize } from "../lib/aws-icons";
+
+interface Props {
+  service: string;
+  size?: AwsIconSize;
+  decorative?: boolean;
+  className?: string;
+}
+
+const { service, size = 32, decorative = false, className } = Astro.props;
+const icon = resolveAwsServiceIcon(service);
+const accessibleLabel = icon?.canonicalName ?? service;
+---
+
+{
+  icon ? (
+    <img
+      class:list={["aws-service-icon", className]}
+      src={withBasePath(icon.src[size])}
+      alt={decorative ? "" : icon.alt}
+      aria-hidden={decorative ? "true" : undefined}
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+    />
+  ) : (
+    <span
+      class:list={["aws-service-fallback", className]}
+      aria-hidden={decorative ? "true" : undefined}
+      aria-label={decorative ? undefined : accessibleLabel}
+      style={`inline-size:${size}px;block-size:${size}px;`}
+    >
+      {service
+        .split(/\s+/)
+        .map((part) => part[0] ?? "")
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()}
+    </span>
+  )
+}
+
+<style>
+  .aws-service-icon,
+  .aws-service-fallback {
+    display: inline-flex;
+    flex: 0 0 auto;
+    border-radius: 10px;
+  }
+
+  .aws-service-fallback {
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    background: var(--surface-strong);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+</style>

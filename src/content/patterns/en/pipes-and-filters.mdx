@@ -1,0 +1,187 @@
+---
+lang: en
+slug: pipes-and-filters
+title: "Pipes and Filters"
+summary: "Chains independent transformation and routing stages so each filter stays small, reusable, and replaceable."
+category: event-driven
+problemFocus: pipeline-composition
+problem: "Message or file processing has become one large block that is hard to evolve, test, and observe per stage."
+whenToUse:
+  - "When the flow can be divided into independent, composable stages."
+  - "When each transformation must evolve, scale, or be replaced separately."
+  - "When the team wants clear operational visibility into where the message sits in the pipeline."
+whenNotToUse:
+  - "When stages depend on tightly shared mutable state."
+  - "When end-to-end latency must stay extremely low and every extra hop hurts."
+  - "When one simple step would solve the whole flow cleanly."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "pipeline"
+  - "transformation"
+  - "filters"
+  - "composition"
+awsServices:
+  - "Amazon EventBridge Pipes"
+  - "AWS Lambda"
+  - "Amazon SQS"
+  - "Amazon EventBridge"
+relatedPatterns:
+  - "fanout"
+  - "competing-consumers"
+  - "api-composition"
+media: {}
+asciiDiagram:
+  title: "Pipes and Filters :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Pipes and Filters :: quick read                                |
+    +----------------------------------------------------------------+
+    | [01] Input reaches a defined pipe                              |
+    | -> The message follows a minimal contract to move through t... |
+    | [02] Each filter applies one small responsibility              |
+    | -> Validation, enrichment, normalization, and routing remai... |
+    | [03] The result moves to the next pipe                         |
+    | -> Each stage can be monitored, tested, and replaced indivi... |
+    | [04] The pipeline delivers to one or more final targets        |
+    | -> Routing and transformation no longer live in one opaque...  |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon EventBridge Pipes | AWS Lambda | Amazon SQS      |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-eventbridge-pipes"
+    title: "Amazon EventBridge Pipes"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon EventBridge User Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes.html"
+  - id: "aws-eventbridge-pipes-concepts"
+    title: "Amazon EventBridge Pipes concepts"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon EventBridge User Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/eventbridge/latest/userguide/pipes-concepts.html"
+featured: false
+---
+
+## General concept
+
+Pipes and Filters is valuable when processing can be decomposed into small stages, each focused on one responsibility such as validation, enrichment, routing, or normalization. <Cite ids={["hohpe-eip"]} />
+
+By separating those stages, you gain replaceability, per-filter observability, and the ability to reorder the pipeline as the domain matures. <Cite ids={["aws-eventbridge-pipes","aws-eventbridge-pipes-concepts"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Pipeline composed of independent filters"} type="flowchart" code={"Input[\"Input queue / bus\"] --> Validate[\"Validate filter\"]\nValidate --> Enrich[\"Enrich filter\"]\nEnrich --> Route[\"Route filter\"]\nRoute --> TargetA[\"Target A\"]\nRoute --> TargetB[\"Target B\"]"} caption={"Each filter receives, transforms, or decides, and the pipes between them make the flow explicit."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "Input reaches a defined pipe",
+    "description": "The message follows a minimal contract to move through the pipeline."
+  },
+  {
+    "title": "Each filter applies one small responsibility",
+    "description": "Validation, enrichment, normalization, and routing remain separate."
+  },
+  {
+    "title": "The result moves to the next pipe",
+    "description": "Each stage can be monitored, tested, and replaced individually."
+  },
+  {
+    "title": "The pipeline delivers to one or more final targets",
+    "description": "Routing and transformation no longer live in one opaque block."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Modularity",
+    "benefit": "Each stage can evolve and scale independently.",
+    "cost": "More hops mean more failure and observation points."
+  },
+  {
+    "area": "Clarity",
+    "benefit": "It is obvious where the message was transformed.",
+    "cost": "Too many filters can fragment the flow excessively."
+  },
+  {
+    "area": "Reuse",
+    "benefit": "Filters can be reused in multiple pipelines.",
+    "cost": "Contracts between stages require disciplined governance."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Processing has naturally separable stages.",
+  "The team often needs to insert, replace, or reorder steps.",
+  "Stage-level observability creates real value."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Each filter depends heavily on the previous filter's internal context.",
+  "The pipeline has become just a stack of wrappers with no clear responsibility.",
+  "The added latency is unacceptable for the use case."
+]} />
+
+<Callout title={"Useful heuristic"} tone="warning">
+  <p>If a filter cannot explain its responsibility in one sentence, it is probably doing too much. <Cite ids={["hohpe-eip","aws-eventbridge-pipes-concepts"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Onboarding events pass through validation, enrichment, and routing toward different destinations."} services={[
+  "Amazon EventBridge Pipes",
+  "AWS Lambda",
+  "Amazon SQS",
+  "Amazon EventBridge"
+]} implementation={[
+  "Amazon EventBridge Pipes connects source, transformation, and destination with declarative filters.",
+  "AWS Lambda is used only for stages that truly require custom code.",
+  "Amazon SQS can buffer slower sections of the pipeline.",
+  "Each filter emits enough metrics and logs to diagnose bottlenecks and failures."
+]} />
+
+## Common mistakes
+
+- Creating filters that are too small without real separation value.
+- Leaving contracts between stages implicit.
+- Hiding critical routing rules inside low-observability scripts.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Pipes and Filters vs Fanout",
+    "difference": "Pipes and Filters chains transformations; Fanout replicates the same event to multiple consumers."
+  },
+  {
+    "title": "Pipes and Filters vs API Composition",
+    "difference": "Pipes and Filters processes asynchronous flows in stages; API Composition aggregates data on demand for a response."
+  }
+]} />

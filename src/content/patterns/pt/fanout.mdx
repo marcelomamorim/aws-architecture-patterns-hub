@@ -1,0 +1,195 @@
+---
+lang: pt
+slug: fanout
+title: "Fanout"
+summary: "Replica um mesmo evento para multiplos consumidores independentes sem obrigar o produtor a conhecer cada destino."
+category: event-driven
+problemFocus: broadcast
+problem: "Um servico precisa disparar a mesma mudanca para varias capacidades downstream e o acoplamento ponto a ponto comeca a atrasar evolucao e operacao."
+whenToUse:
+  - "Quando um mesmo evento deve acionar notificacoes, analytics, integracoes e workflows paralelos."
+  - "Quando voce quer adicionar novos consumidores sem redeployar o produtor."
+  - "Quando cada assinante precisa evoluir no proprio ritmo."
+whenNotToUse:
+  - "Quando existe dependencia sequencial forte entre os consumidores."
+  - "Quando o evento ainda nao tem contrato estavel o suficiente para ser compartilhado."
+  - "Quando todos os assinantes exigem resposta sincronica ao mesmo tempo."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "eventos"
+  - "pub-sub"
+  - "desacoplamento"
+  - "assinantes"
+awsServices:
+  - "Amazon SNS"
+  - "Amazon EventBridge"
+  - "Amazon SQS"
+  - "AWS Lambda"
+relatedPatterns:
+  - "competing-consumers"
+  - "event-carried-state-transfer"
+  - "transactional-outbox"
+media:
+  heroImage:
+    src: "/media/patterns/fanout.svg"
+    alt: "Diagrama com um produtor publicando um evento para varios consumidores independentes."
+    caption: "Um canal central distribui o mesmo evento para equipes e capacidades diferentes."
+  diagram:
+    src: "/media/patterns/fanout.svg"
+    alt: "Diagrama com um produtor publicando um evento para varios consumidores independentes."
+    caption: "Um canal central distribui o mesmo evento para equipes e capacidades diferentes."
+asciiDiagram:
+  title: "Fanout :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Fanout :: leitura rapida                                       |
+    +----------------------------------------------------------------+
+    | [01] O produtor publica um unico evento                        |
+    | -> A emissao precisa conter um contrato minimamente estavel... |
+    | [02] O barramento replica para os assinantes                   |
+    | -> SNS, EventBridge ou SQS fanout absorvem entrega, filtro...  |
+    | [03] Cada consumidor processa com autonomia                    |
+    | -> Falhas ou mudancas locais nao exigem acoplamento direto...  |
+    | [04] Novos destinos entram sem tocar no emissor                |
+    | -> A arquitetura ganha extensibilidade real para novos caso... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SNS | Amazon EventBridge | Amazon SQS            |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-sns-a2a"
+    title: "Using Amazon SNS for application-to-application messaging"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon SNS Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/sns/latest/dg/sns-system-to-system-messaging.html"
+  - id: "aws-sns-fanout-lambda"
+    title: "Fanout Amazon SNS notifications to Lambda functions for automated processing"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon SNS Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/sns/latest/dg/sns-lambda-as-subscriber.html"
+featured: true
+---
+
+## Conceito geral
+
+Fanout resolve o momento em que um dominio passa a ter mais de um interessado na mesma mudanca de estado e cada nova integracao comeca a gerar dependencia acidental no produtor. <Cite ids={["hohpe-eip"]} />
+
+Com um topico ou barramento de eventos, o servico emissor publica uma vez e deixa a responsabilidade de assinatura, retentativa e entrega para a infraestrutura de mensageria. <Cite ids={["aws-sns-a2a","aws-sns-fanout-lambda"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Um produtor, varios destinos, contratos independentes"} type="flowchart" code={"Producer[\"Servico emissor\"] --> Bus[\"SNS Topic / EventBridge Bus\"]\nBus --> Billing[\"Faturamento\"]\nBus --> Notifications[\"Notificacoes\"]\nBus --> Analytics[\"Analytics\"]\nBus --> Workflow[\"Workflow assinado\"]"} caption={"O produtor emite apenas o fato de dominio; cada consumidor decide o proprio processamento."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "O produtor publica um unico evento",
+    "description": "A emissao precisa conter um contrato minimamente estavel e versionavel."
+  },
+  {
+    "title": "O barramento replica para os assinantes",
+    "description": "SNS, EventBridge ou SQS fanout absorvem entrega, filtro e retentativa."
+  },
+  {
+    "title": "Cada consumidor processa com autonomia",
+    "description": "Falhas ou mudancas locais nao exigem acoplamento direto com o produtor."
+  },
+  {
+    "title": "Novos destinos entram sem tocar no emissor",
+    "description": "A arquitetura ganha extensibilidade real para novos casos de uso."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Evolucao",
+    "benefit": "Novos consumidores podem ser adicionados sem alterar o servico emissor.",
+    "cost": "Governanca de contrato e versionamento de evento ficam mais importantes."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "Cada assinante escala e falha de forma independente.",
+    "cost": "Tracing fim a fim exige correlacao entre publicacao e consumo."
+  },
+  {
+    "area": "Produto",
+    "benefit": "A mesma mudanca de negocio abastece varias capacidades em paralelo.",
+    "cost": "Um evento mal desenhado espalha ambiguidade para varios times."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Existe mais de um consumidor para o mesmo fato de dominio.",
+  "Os downstreams podem operar assincronamente.",
+  "O time quer habilitar extensibilidade sem alterar o emissor."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "O evento carrega detalhes internos demais do produtor.",
+  "Nao existe estrategia de idempotencia nos consumidores.",
+  "Os consumidores dependem de ordem global sem infraestrutura para isso."
+]} />
+
+<Callout title={"Nota editorial"} tone="warning">
+  <p>Fanout desacopla distribuicao, mas nao elimina a necessidade de contratos bem definidos, DLQ e observabilidade por assinante. <Cite ids={["aws-sns-a2a","aws-sns-fanout-lambda"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Checkout publica OrderPlaced e varios contextos precisam reagir sem acoplamento ponto a ponto."} services={[
+  "Amazon SNS",
+  "Amazon EventBridge",
+  "Amazon SQS",
+  "AWS Lambda"
+]} implementation={[
+  "O servico de pedidos publica o evento em Amazon EventBridge ou Amazon SNS.",
+  "Assinantes simples processam direto com AWS Lambda; assinantes com absorcao de pico podem usar Amazon SQS entre o topico e o consumidor.",
+  "Filtros por atributo evitam que cada assinante receba eventos irrelevantes.",
+  "Correlacao por eventId e traceId facilita debugar entrega e reprocessamento."
+]} />
+
+## Erros comuns
+
+- Usar fanout quando a regra de negocio exige uma cadeia sequencial de passos.
+- Publicar payloads excessivos e transformar o barramento em espelho do banco do produtor.
+- Ignorar DLQ e reprocessamento para assinantes criticos.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Fanout vs Competing Consumers",
+    "difference": "Fanout replica para varios destinos; Competing Consumers divide trabalho entre workers do mesmo destino."
+  },
+  {
+    "title": "Fanout vs Pipes and Filters",
+    "difference": "Fanout espalha o mesmo evento; Pipes and Filters encadeia transformacoes em uma mesma jornada."
+  }
+]} />

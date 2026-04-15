@@ -1,0 +1,201 @@
+---
+import AwsServiceIcon from "../../../components/AwsServiceIcon.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { localizedPath } from "../../../lib/paths";
+import { getValidatedPatterns, type PatternEntry } from "../../../lib/patterns";
+import { getAllServices, getServiceBySlug, resolveServiceByName } from "../../../lib/services";
+import { getCopy, type Language } from "../../../lib/site";
+
+export async function getStaticPaths() {
+  const paths = [];
+
+  for (const lang of ["pt", "en"] as const) {
+    for (const service of getAllServices(lang)) {
+      paths.push({ params: { lang, slug: service.slug } });
+    }
+  }
+
+  return paths;
+}
+
+const lang = Astro.params.lang as Language;
+const slug = Astro.params.slug!;
+const service = getServiceBySlug(lang, slug);
+
+if (!service) {
+  throw new Error(`Service not found: ${lang}/${slug}`);
+}
+
+const copy = getCopy(lang);
+const patterns = await getValidatedPatterns();
+const relatedPatterns = patterns.filter((pattern: PatternEntry) => {
+  if (pattern.data.lang !== lang) {
+    return false;
+  }
+
+  return pattern.data.awsServices.some((name: string) => resolveServiceByName(name)?.slug === slug);
+});
+const currentPath = localizedPath(lang, `services/${slug}`);
+const alternates = [
+  { lang: "pt" as const, href: localizedPath("pt", `services/${slug}`) },
+  { lang: "en" as const, href: localizedPath("en", `services/${slug}`) }
+];
+---
+
+<BaseLayout
+  lang={lang}
+  title={service.name}
+  description={service.summary}
+  currentPath={currentPath}
+  alternates={alternates}
+>
+  <section class="pattern-shell pattern-grid-bg">
+    <div class="section-frame service-detail-shell">
+      <div class="service-detail-main">
+        <a class="back-link" href={localizedPath(lang, "services")}>{copy.services}</a>
+
+        <header class="service-hero">
+          <div class="service-hero-head">
+            <AwsServiceIcon service={service.name} size={48} />
+            <div>
+              <span class="eyebrow">{service.categoryLabel}</span>
+              <h1>{service.name}</h1>
+            </div>
+          </div>
+
+          <section class="summary-box" id="summary">
+            <p>{service.summary}</p>
+          </section>
+        </header>
+
+        <section class="detail-card">
+          <span class="detail-card-label">{lang === "pt" ? "Resumo" : "Summary"}</span>
+          <p>{service.detail}</p>
+        </section>
+
+        <section class="utility-card">
+          <span class="detail-card-label">{lang === "pt" ? "Onde costuma aparecer" : "Where it usually appears"}</span>
+          <ul>
+            {service.useCases.map((item: string) => <li>{item}</li>)}
+          </ul>
+        </section>
+
+        <section class="detail-card">
+          <span class="detail-card-label">{copy.serviceSource}</span>
+          <p>
+            <a href={service.source.url} target="_blank" rel="noreferrer">{service.source.title}</a>
+          </p>
+        </section>
+
+        <section class="related-card" id="related">
+          <div class="related-head">
+            <p class="eyebrow">{copy.relatedServicesPatterns}</p>
+          </div>
+
+          <div class="related-links">
+            {relatedPatterns.map((pattern: PatternEntry) => (
+              <a href={localizedPath(lang, `patterns/${pattern.data.slug}`)}>
+                <strong>{pattern.data.title}</strong>
+                <span>{pattern.data.summary}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .service-detail-shell {
+    padding: 2.5rem 0 3.25rem;
+  }
+
+  .service-detail-main {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 58rem;
+  }
+
+  .back-link {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+
+  .service-hero,
+  .detail-card,
+  .utility-card,
+  .related-card {
+    display: grid;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .service-hero-head {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .service-hero-head h1,
+  .detail-card p,
+  .related-head p,
+  .utility-card ul {
+    margin: 0;
+  }
+
+  .service-hero-head h1 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .detail-card-label {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .detail-card p,
+  .summary-box p,
+  .utility-card li {
+    color: var(--text-soft);
+    line-height: 1.75;
+  }
+
+  .related-links {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .related-links a {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.95rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%);
+  }
+
+  .related-links strong {
+    color: var(--text);
+  }
+
+  .related-links span {
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  @media (max-width: 720px) {
+    .service-hero-head {
+      align-items: flex-start;
+    }
+  }
+</style>

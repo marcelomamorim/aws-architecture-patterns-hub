@@ -1,0 +1,187 @@
+---
+lang: pt
+slug: competing-consumers
+title: "Competing Consumers"
+summary: "Escala o consumo paralelo de uma mesma fila distribuindo mensagens entre varios workers independentes."
+category: event-driven
+problemFocus: consumer-scale
+problem: "Um unico consumidor nao consegue drenar o backlog no tempo necessario e o throughput do sistema fica limitado por um unico worker."
+whenToUse:
+  - "Quando o trabalho pode ser processado em paralelo sem coordenacao global pesada."
+  - "Quando a fila ja representa a unidade de trabalho correta."
+  - "Quando voce precisa aumentar vazao sem alterar o produtor."
+whenNotToUse:
+  - "Quando a ordem global da fila inteira precisa ser preservada."
+  - "Quando o processamento depende de estado compartilhado sem protecao."
+  - "Quando o consumidor nao e idempotente."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "paralelismo"
+  - "throughput"
+  - "workers"
+  - "fila"
+awsServices:
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "queue-based-load-leveling"
+  - "fanout"
+  - "idempotent-consumer"
+media: {}
+asciiDiagram:
+  title: "Competing Consumers :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Competing Consumers :: leitura rapida                          |
+    +----------------------------------------------------------------+
+    | [01] A fila representa unidades independentes de trabalho      |
+    | -> O desenho da mensagem precisa permitir processamento iso... |
+    | [02] Varios consumers disputam mensagens                       |
+    | -> Cada worker retira mensagens conforme sua propria capaci... |
+    | [03] A concorrencia escala throughput                          |
+    | -> Mais workers drenam backlog com menor tempo total.          |
+    | [04] Observabilidade regula paralelismo                        |
+    | -> Lag, erro e custo orientam o limite saudavel de concorre... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SQS | AWS Lambda | Amazon ECS                    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-lambda-sqs-scaling"
+    title: "Configuring scaling behavior for SQS event source mappings"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html"
+  - id: "azure-competing-consumers"
+    title: "Competing Consumers pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/competing-consumers"
+featured: false
+---
+
+## Conceito geral
+
+Competing Consumers aumenta throughput colocando varios workers competindo pela mesma fonte de mensagens, cada um processando uma parte do backlog de forma independente. <Cite ids={["hohpe-eip"]} />
+
+O ganho vem de paralelismo horizontal, mas ele so funciona bem quando a unidade de trabalho e isolavel e o sistema aceita ordem local em vez de sequencia global unica. <Cite ids={["aws-lambda-sqs-scaling","azure-competing-consumers"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Varios workers drenam a mesma fila"} type="flowchart" code={"Queue[\"Amazon SQS\"] --> Worker1[\"Worker 1\"]\nQueue --> Worker2[\"Worker 2\"]\nQueue --> Worker3[\"Worker 3\"]\nWorker1 --> Result[\"Processamento\"]\nWorker2 --> Result\nWorker3 --> Result"} caption={"Cada mensagem vai para apenas um worker, aumentando vazao sem replicar o trabalho."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A fila representa unidades independentes de trabalho",
+    "description": "O desenho da mensagem precisa permitir processamento isolado."
+  },
+  {
+    "title": "Varios consumers disputam mensagens",
+    "description": "Cada worker retira mensagens conforme sua propria capacidade."
+  },
+  {
+    "title": "A concorrencia escala throughput",
+    "description": "Mais workers drenam backlog com menor tempo total."
+  },
+  {
+    "title": "Observabilidade regula paralelismo",
+    "description": "Lag, erro e custo orientam o limite saudavel de concorrencia."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Escala",
+    "benefit": "Aumenta vazao sem mexer no produtor.",
+    "cost": "Ordenacao global e afinidade de estado ficam mais dificeis."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "A concorrencia pode subir e descer conforme backlog.",
+    "cost": "Debug fica mais complexo com muitos workers em paralelo."
+  },
+  {
+    "area": "Confiabilidade",
+    "benefit": "Falha de um worker nao derruba todo o processamento.",
+    "cost": "Idempotencia e lock por recurso podem ser necessarios."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "As mensagens sao independentes entre si.",
+  "O backlog precisa ser drenado mais rapidamente do que um worker unico consegue.",
+  "Ha metricas de concorrencia, retries e DLQ."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "A mesma entidade e atualizada concorrentemente sem protecao.",
+  "Existe dependencia forte de ordem global.",
+  "O time esta escalando workers para mascarar payload ou logica ineficiente."
+]} />
+
+<Callout title={"Dica de desenho"} tone="warning">
+  <p>Antes de subir concorrencia, valide se a unidade de trabalho cabe em processamento isolado e se a fila realmente e o ponto certo para paralelizar. <Cite ids={["hohpe-eip","aws-lambda-sqs-scaling"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Fila de processamento de arquivos precisa reduzir backlog em horarios de pico."} services={[
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "Amazon SQS concentra as unidades de trabalho em uma fila unica.",
+  "AWS Lambda ou tarefas em Amazon ECS escalam horizontalmente conforme o volume e a configuracao de concorrencia maxima.",
+  "CloudWatch acompanha idade da mensagem, taxa de erro e throughput por worker.",
+  "DLQ e idempotencia protegem o sistema contra reentregas e falhas parciais."
+]} />
+
+## Erros comuns
+
+- Assumir ordem global quando a fila e standard.
+- Escalar concorrencia sem revisar limites do banco ou API downstream.
+- Ignorar deduplicacao e processamento idempotente.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Competing Consumers vs Fanout",
+    "difference": "Competing Consumers divide o mesmo backlog entre workers; Fanout replica o evento para varios destinos."
+  },
+  {
+    "title": "Competing Consumers vs Queue-Based Load Leveling",
+    "difference": "Load Leveling cria o buffer; Competing Consumers define como esse buffer e drenado em paralelo."
+  }
+]} />

@@ -1,0 +1,186 @@
+---
+lang: pt
+slug: bulkhead
+title: "Bulkhead"
+summary: "Separa pools de capacidade, filas ou recursos para que a saturacao de uma carga nao derrube o restante do sistema."
+category: resilience
+problemFocus: fault-isolation
+problem: "Uma classe de workload ou dependencia pode consumir toda a concorrencia disponivel e contaminar usuarios e fluxos que nao tem relacao com a falha."
+whenToUse:
+  - "Quando diferentes tipos de trafego competem pelos mesmos recursos limitados."
+  - "Quando uma dependencia lenta pode drenar toda a concorrencia do processo."
+  - "Quando ha workloads com prioridades e SLAs diferentes."
+whenNotToUse:
+  - "Quando o sistema e pequeno demais para justificar multiplos pools."
+  - "Quando a equipe nao consegue medir capacidade por workload."
+  - "Quando a separacao nao representa nenhuma prioridade real do negocio."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "isolamento"
+  - "capacidade"
+  - "concorrencia"
+  - "prioridades"
+awsServices:
+  - "Amazon ECS"
+  - "AWS Lambda"
+  - "Amazon SQS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "circuit-breaker"
+  - "queue-based-load-leveling"
+  - "rate-limiting"
+media: {}
+asciiDiagram:
+  title: "Bulkhead :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Bulkhead :: leitura rapida                                     |
+    +----------------------------------------------------------------+
+    | [01] Os workloads sao classificados                            |
+    | -> Prioridade, tipo de usuario ou natureza da operacao defi... |
+    | [02] Cada grupo recebe capacidade isolada                      |
+    | -> Filas, limites de concorrencia ou pools separados tornam... |
+    | [03] Falhas ficam contidas no compartimento afetado            |
+    | -> O restante do sistema continua com capacidade preservada.   |
+    | [04] Observabilidade orienta rebalanceamento                   |
+    | -> Os limites precisam evoluir conforme comportamento e SLA.   |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon ECS | AWS Lambda | Amazon SQS                    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "nygard-release-it"
+    title: "Release It! Design and Deploy Production-Ready Software"
+    authors:
+      - "Michael T. Nygard"
+    year: 2018
+    publisher: "Pragmatic Bookshelf"
+    type: book
+    role: conceptual
+  - id: "aws-builders-dependency-isolation"
+    title: "Using dependency isolation to contain concurrency overload"
+    authors:
+      - "Amazon Web Services"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: implementation
+    url: "https://aws.amazon.com/builders-library/dependency-isolation/"
+  - id: "azure-bulkhead"
+    title: "Bulkhead pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead"
+featured: false
+---
+
+## Conceito geral
+
+Bulkhead parte da mesma intuicao dos compartimentos de um navio: um vazamento em uma area nao pode afundar a embarcacao inteira. <Cite ids={["nygard-release-it","azure-bulkhead"]} />
+
+Na pratica, isso significa separar filas, concorrencia, pools de conexao ou capacidade computacional para que um workload degradado nao consuma tudo. <Cite ids={["aws-builders-dependency-isolation"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Capacidade segmentada por workload"} type="flowchart" code={"Ingress[\"Ingress\"] --> Premium[\"Pool premium\"]\nIngress --> Standard[\"Pool standard\"]\nPremium --> ServiceA[\"Isolated capacity A\"]\nStandard --> ServiceB[\"Isolated capacity B\"]\nServiceA --> Downstream[\"Dependencies\"]\nServiceB --> Downstream"} caption={"Cada compartimento preserva parte da capacidade para sua propria classe de trabalho."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "Os workloads sao classificados",
+    "description": "Prioridade, tipo de usuario ou natureza da operacao definem o particionamento."
+  },
+  {
+    "title": "Cada grupo recebe capacidade isolada",
+    "description": "Filas, limites de concorrencia ou pools separados tornam o isolamento real."
+  },
+  {
+    "title": "Falhas ficam contidas no compartimento afetado",
+    "description": "O restante do sistema continua com capacidade preservada."
+  },
+  {
+    "title": "Observabilidade orienta rebalanceamento",
+    "description": "Os limites precisam evoluir conforme comportamento e SLA."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Protecao",
+    "benefit": "Evita que uma carga derrube todo o sistema.",
+    "cost": "Capacidade pode ficar ociosa em um pool enquanto outro satura."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "SLAs por classe de workload ficam mais governaveis.",
+    "cost": "Dimensionamento e tuning se tornam mais complexos."
+  },
+  {
+    "area": "Produto",
+    "benefit": "Permite priorizar fluxos criticos.",
+    "cost": "As escolhas de prioridade precisam ser transparentes e justificadas."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Existem workloads com impacto e prioridade diferentes.",
+  "Uma dependencia lenta ja causou exaustao de concorrencia.",
+  "O time tem telemetria por pool ou tipo de trafego."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Os pools foram criados sem criterio de negocio ou operacao.",
+  "Nao existe revisao periodica da divisao de capacidade.",
+  "O isolamento e apenas logico, sem limites reais na infraestrutura."
+]} />
+
+<Callout title={"Nao confundir"} tone="warning">
+  <p>Bulkhead nao elimina a necessidade de timeout ou circuit breaker; ele garante que, quando algo der errado, nem todo mundo pague o mesmo preco. <Cite ids={["aws-builders-dependency-isolation","azure-bulkhead"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"API premium e API standard compartilham o mesmo backend, mas nao podem perder capacidade ao mesmo tempo."} services={[
+  "Amazon ECS",
+  "AWS Lambda",
+  "Amazon SQS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "Filas separadas em Amazon SQS e limites distintos de concorrencia em AWS Lambda ou Amazon ECS isolam classes de workload.",
+  "Cada pool recebe alertas e dashboards proprios em CloudWatch.",
+  "Dependencias mais instaveis podem ter workers dedicados para nao consumir tudo.",
+  "Revisoes periodicas ajustam o tamanho de cada compartimento conforme uso real."
+]} />
+
+## Erros comuns
+
+- Criar pools demais e fragmentar capacidade sem criterio.
+- Nao reservar capacidade para fluxos realmente criticos.
+- Chamar bulkhead de pronto quando so existe separacao de codigo.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Bulkhead vs Circuit Breaker",
+    "difference": "Bulkhead isola capacidade; Circuit Breaker decide quando parar de chamar uma dependencia instavel."
+  },
+  {
+    "title": "Bulkhead vs Rate Limiting",
+    "difference": "Bulkhead reserva capacidade por compartimento; Rate Limiting controla quanto entra por janela."
+  }
+]} />

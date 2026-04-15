@@ -1,0 +1,186 @@
+---
+lang: pt
+slug: api-composition
+title: "API Composition"
+summary: "Monta respostas consultando varios servicos em tempo de requisicao, combinando dados sem criar uma projecao persistida previa."
+category: data
+problemFocus: api-abstraction
+problem: "Uma consulta de negocio precisa juntar dados espalhados por varios servicos, mas nao existe ainda um read model pronto para isso."
+whenToUse:
+  - "Quando a necessidade principal e responder consultas agregadas rapidamente."
+  - "Quando o volume e a complexidade ainda nao justificam uma projecao materializada dedicada."
+  - "Quando os dados de varios servicos precisam aparecer juntos para o cliente."
+whenNotToUse:
+  - "Quando a consulta e muito frequente ou pesada para ser montada sob demanda."
+  - "Quando a latencia acumulada de varias chamadas ficaria alta demais."
+  - "Quando ja existe um read model melhor desenhado para esse caso."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "composicao"
+  - "queries"
+  - "agregacao"
+  - "fachada de leitura"
+awsServices:
+  - "AWS AppSync"
+  - "AWS Lambda"
+  - "Amazon API Gateway"
+  - "Amazon DynamoDB"
+relatedPatterns:
+  - "api-gateway"
+  - "cqrs"
+  - "database-per-service"
+media: {}
+asciiDiagram:
+  title: "API Composition :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | API Composition :: leitura rapida                              |
+    +----------------------------------------------------------------+
+    | [01] A requisicao chega ao composer                            |
+    | -> Ele sabe quais servicos precisam contribuir para a respo... |
+    | [02] Consultas paralelas coletam fragmentos de dado            |
+    | -> Cada servico continua dono do proprio dado.                 |
+    | [03] O composer junta os resultados em memoria                 |
+    | -> A resposta final ja sai no formato que o cliente precisa.   |
+    | [04] A latencia total reflete a soma das dependencias          |
+    | -> Observabilidade e timeouts tornam-se essenciais.            |
+    +----------------------------------------------------------------+
+    | AWS :: AWS AppSync | AWS Lambda | Amazon API Gateway           |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "microservices-api-composition"
+    title: "Pattern: API Composition"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/data/api-composition.html"
+  - id: "aws-appsync-pipeline-js"
+    title: "Configuring and using pipeline resolvers in AWS AppSync (JavaScript)"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS AppSync Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/appsync/latest/devguide/pipeline-resolvers-js.html"
+  - id: "microservices-patterns-book"
+    title: "Microservices Patterns"
+    authors:
+      - "Chris Richardson"
+    year: 2018
+    publisher: "Manning"
+    type: book
+    role: complementary
+featured: false
+---
+
+## Conceito geral
+
+API Composition responde consultas chamando os servicos que possuem os dados e montando a resposta em tempo real no ponto de entrada. <Cite ids={["microservices-api-composition"]} />
+
+Ela e util quando a demanda por agregacao existe, mas ainda nao justifica criar e operar uma projecao dedicada como em CQRS. <Cite ids={["aws-appsync-pipeline-js","microservices-patterns-book"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Resposta agregada em tempo de requisicao"} type="flowchart" code={"Client[\"Client\"] --> Composer[\"API composer\"]\nComposer --> Orders[\"Orders service\"]\nComposer --> Catalog[\"Catalog service\"]\nComposer --> Pricing[\"Pricing service\"]\nOrders --> Composer\nCatalog --> Composer\nPricing --> Composer\nComposer --> Response[\"Aggregated response\"]"} caption={"O composer busca os dados necessarios e monta uma resposta unificada sem persistir uma projecao previa."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A requisicao chega ao composer",
+    "description": "Ele sabe quais servicos precisam contribuir para a resposta."
+  },
+  {
+    "title": "Consultas paralelas coletam fragmentos de dado",
+    "description": "Cada servico continua dono do proprio dado."
+  },
+  {
+    "title": "O composer junta os resultados em memoria",
+    "description": "A resposta final ja sai no formato que o cliente precisa."
+  },
+  {
+    "title": "A latencia total reflete a soma das dependencias",
+    "description": "Observabilidade e timeouts tornam-se essenciais."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Simplicidade",
+    "benefit": "Resolve agregacao sem criar novos stores de leitura.",
+    "cost": "A consulta depende da saude e da latencia de varios servicos."
+  },
+  {
+    "area": "Entrega",
+    "benefit": "Pode ser introduzida rapidamente para atender um caso de leitura.",
+    "cost": "Pode ficar cara e lenta em queries frequentes ou amplas."
+  },
+  {
+    "area": "Arquitetura",
+    "benefit": "Mantem ownership de dados nos servicos de origem.",
+    "cost": "O composer vira mais um ponto de acoplamento sincronico."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Existe demanda por agregacao, mas ainda nao por projecao materializada.",
+  "O numero de dependencias por consulta continua controlado.",
+  "A latencia agregada cabe no budget do cliente."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "A consulta depende de muitos hops e joins em memoria custosos.",
+  "O composer virou uma camada cheia de regras de negocio.",
+  "O caso de uso esta ficando frequente o bastante para merecer CQRS."
+]} />
+
+<Callout title={"Boa heuristica"} tone="warning">
+  <p>Quando a mesma composicao passa a ser muito frequente ou cara, vale avaliar se ela deve virar um read model dedicado. <Cite ids={["microservices-api-composition","microservices-patterns-book"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Tela de pedido precisa combinar status do pedido, catalogo e precificacao em uma unica resposta."} services={[
+  "AWS AppSync",
+  "AWS Lambda",
+  "Amazon API Gateway",
+  "Amazon DynamoDB"
+]} implementation={[
+  "AWS AppSync pipeline resolvers ou uma funcao em AWS Lambda podem executar a composicao de forma controlada.",
+  "Cada dependencia recebe timeout, observabilidade e fallback apropriados.",
+  "Amazon API Gateway pode expor a fachada enquanto a composicao ocorre por tras.",
+  "Se a consulta virar critica demais, o time pode migrar depois para CQRS ou replica especializada."
+]} />
+
+## Erros comuns
+
+- Montar respostas com chamadas demais em cadeia.
+- Esconder regras de negocio complexas dentro do composer.
+- Persistir joins acidentais em memoria sem observar custo de latencia.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "API Composition vs CQRS",
+    "difference": "API Composition agrega dados on demand; CQRS pre-materializa visoes de leitura."
+  },
+  {
+    "title": "API Composition vs API Gateway",
+    "difference": "API Composition e a tecnica de juntar dados; API Gateway e a fachada de borda onde essa tecnica pode aparecer."
+  }
+]} />
