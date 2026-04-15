@@ -1,0 +1,95 @@
+---
+const labels = {
+  pt: {
+    button: "Alternar tema",
+    light: "Claro",
+    dark: "Escuro"
+  },
+  en: {
+    button: "Toggle theme",
+    light: "Light",
+    dark: "Dark"
+  }
+} as const;
+
+interface Props {
+  lang: "pt" | "en";
+}
+
+const { lang } = Astro.props;
+const copy = labels[lang];
+---
+
+<button class="theme-toggle" type="button" aria-label={copy.button} title={copy.button} data-theme-toggle>
+  <span class="theme-toggle-icon" aria-hidden="true">◐</span>
+  <span class="theme-toggle-label" data-theme-toggle-label>{copy.light}</span>
+</button>
+
+<script is:inline define:vars={{ copy }}>
+  (() => {
+    const storageKey = "aaph-theme";
+    const root = document.documentElement;
+    const button = document.querySelector("[data-theme-toggle]");
+    const label = document.querySelector("[data-theme-toggle-label]");
+
+    if (!button || !label) {
+      return;
+    }
+
+    const getSystemTheme = () =>
+      window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+    const getTheme = () => {
+      const stored = window.localStorage.getItem(storageKey);
+      return stored === "dark" || stored === "light" ? stored : getSystemTheme();
+    };
+
+    const applyTheme = (theme) => {
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+      label.textContent = theme === "dark" ? copy.dark : copy.light;
+      button.setAttribute("data-active-theme", theme);
+      document.dispatchEvent(new CustomEvent("themechange", { detail: { theme } }));
+    };
+
+    applyTheme(getTheme());
+
+    button.addEventListener("click", () => {
+      const next = (root.dataset.theme || getTheme()) === "dark" ? "light" : "dark";
+      window.localStorage.setItem(storageKey, next);
+      applyTheme(next);
+    });
+  })();
+</script>
+
+<style>
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.4rem;
+    padding: 0 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--floating);
+    color: var(--text-muted);
+    box-shadow: var(--shadow-soft);
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .theme-toggle:hover {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--line));
+  }
+
+  .theme-toggle-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .theme-toggle-label {
+    white-space: nowrap;
+  }
+</style>

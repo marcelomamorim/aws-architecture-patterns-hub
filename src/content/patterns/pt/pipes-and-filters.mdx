@@ -1,0 +1,187 @@
+---
+lang: pt
+slug: pipes-and-filters
+title: "Pipes and Filters"
+summary: "Encadeia etapas independentes de transformacao e roteamento, mantendo cada filtro pequeno, reutilizavel e facilmente substituivel."
+category: event-driven
+problemFocus: pipeline-composition
+problem: "O processamento de uma mensagem ou arquivo esta virando um bloco unico, dificil de evoluir, testar e observar por etapa."
+whenToUse:
+  - "Quando o fluxo pode ser dividido em passos independentes e composiveis."
+  - "Quando cada transformacao precisa evoluir, escalar ou ser substituida separadamente."
+  - "Quando o time quer clareza operacional sobre onde a mensagem esta no pipeline."
+whenNotToUse:
+  - "Quando os passos dependem de estado compartilhado e acoplado."
+  - "Quando a latencia fim a fim precisa ser minima e cada hop extra pesa demais."
+  - "Quando um unico passo simples resolveria o fluxo inteiro."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "pipeline"
+  - "transformacao"
+  - "filtros"
+  - "composicao"
+awsServices:
+  - "Amazon EventBridge Pipes"
+  - "AWS Lambda"
+  - "Amazon SQS"
+  - "Amazon EventBridge"
+relatedPatterns:
+  - "fanout"
+  - "competing-consumers"
+  - "api-composition"
+media: {}
+asciiDiagram:
+  title: "Pipes and Filters :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Pipes and Filters :: leitura rapida                            |
+    +----------------------------------------------------------------+
+    | [01] A entrada chega em um pipe definido                       |
+    | -> A mensagem segue um contrato minimo para atravessar o pi... |
+    | [02] Cada filtro aplica uma responsabilidade pequena           |
+    | -> Validar, enriquecer, normalizar ou rotear ficam separados.  |
+    | [03] O resultado passa para o proximo pipe                     |
+    | -> Cada passo pode ser monitorado, testado e substituido in... |
+    | [04] O pipeline entrega em um ou mais destinos finais          |
+    | -> Roteamento e transformacao deixam de viver num unico blo... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon EventBridge Pipes | AWS Lambda | Amazon SQS      |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-eventbridge-pipes"
+    title: "Amazon EventBridge Pipes"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon EventBridge User Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes.html"
+  - id: "aws-eventbridge-pipes-concepts"
+    title: "Amazon EventBridge Pipes concepts"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon EventBridge User Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/eventbridge/latest/userguide/pipes-concepts.html"
+featured: false
+---
+
+## Conceito geral
+
+Pipes and Filters e valioso quando o processamento pode ser decomposto em etapas pequenas, cada uma focada em uma unica responsabilidade de validacao, enrich, roteamento ou formatacao. <Cite ids={["hohpe-eip"]} />
+
+Ao separar essas etapas, voce ganha substituibilidade, observabilidade por filtro e a opcao de reordenar o pipeline conforme o dominio amadurece. <Cite ids={["aws-eventbridge-pipes","aws-eventbridge-pipes-concepts"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Pipeline composto por filtros independentes"} type="flowchart" code={"Input[\"Input queue / bus\"] --> Validate[\"Validate filter\"]\nValidate --> Enrich[\"Enrich filter\"]\nEnrich --> Route[\"Route filter\"]\nRoute --> TargetA[\"Target A\"]\nRoute --> TargetB[\"Target B\"]"} caption={"Cada filtro recebe, transforma ou decide, e o pipe entre eles deixa o fluxo explicito."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A entrada chega em um pipe definido",
+    "description": "A mensagem segue um contrato minimo para atravessar o pipeline."
+  },
+  {
+    "title": "Cada filtro aplica uma responsabilidade pequena",
+    "description": "Validar, enriquecer, normalizar ou rotear ficam separados."
+  },
+  {
+    "title": "O resultado passa para o proximo pipe",
+    "description": "Cada passo pode ser monitorado, testado e substituido individualmente."
+  },
+  {
+    "title": "O pipeline entrega em um ou mais destinos finais",
+    "description": "Roteamento e transformacao deixam de viver num unico bloco opaco."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Modularidade",
+    "benefit": "Cada etapa pode evoluir e escalar de forma independente.",
+    "cost": "Mais hops significam mais pontos de falha e observacao."
+  },
+  {
+    "area": "Clareza",
+    "benefit": "Fica evidente onde a mensagem foi transformada.",
+    "cost": "Excesso de filtros pode fragmentar demais o fluxo."
+  },
+  {
+    "area": "Reuso",
+    "benefit": "Filtros podem ser reaproveitados em pipelines diferentes.",
+    "cost": "Contratos entre etapas precisam ser muito bem geridos."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "O processamento tem etapas naturalmente separaveis.",
+  "O time precisa trocar ou inserir passos com frequencia.",
+  "A observabilidade por etapa traz valor real."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Cada filtro depende fortemente do contexto interno do anterior.",
+  "O pipeline virou apenas uma cascata de wrappers sem responsabilidade clara.",
+  "A latencia adicional e inaceitavel para o caso de uso."
+]} />
+
+<Callout title={"Heuristica util"} tone="warning">
+  <p>Se um filtro nao consegue explicar sua responsabilidade em uma frase, ele provavelmente esta fazendo trabalho demais. <Cite ids={["hohpe-eip","aws-eventbridge-pipes-concepts"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Eventos de onboarding passam por validacao, enrichment e roteamento para destinos diferentes."} services={[
+  "Amazon EventBridge Pipes",
+  "AWS Lambda",
+  "Amazon SQS",
+  "Amazon EventBridge"
+]} implementation={[
+  "Amazon EventBridge Pipes conecta origem, transformacao e destino com filtros declarativos.",
+  "AWS Lambda entra apenas nas etapas que realmente exigem logica customizada.",
+  "Amazon SQS pode servir como buffer entre partes mais lentas do pipeline.",
+  "Cada filtro publica metricas e logs suficientes para diagnosticar gargalos e falhas."
+]} />
+
+## Erros comuns
+
+- Criar filtros pequenos demais sem ganho real de separacao.
+- Deixar contratos entre etapas implícitos.
+- Esconder regras de roteamento criticas em scripts pouco observaveis.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Pipes and Filters vs Fanout",
+    "difference": "Pipes and Filters encadeia transformacoes; Fanout replica o mesmo evento para varios consumidores."
+  },
+  {
+    "title": "Pipes and Filters vs API Composition",
+    "difference": "Pipes and Filters processa fluxos assincronos em etapas; API Composition agrega dados sob demanda para resposta."
+  }
+]} />

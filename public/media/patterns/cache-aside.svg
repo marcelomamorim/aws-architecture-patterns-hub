@@ -1,0 +1,14 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="130" y="280" width="220" height="140" rx="28" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="500" y="180" width="220" height="140" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="500" y="400" width="220" height="140" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="860" y="280" width="220" height="140" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <path d="M350 350H500" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M720 250L860 320" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M720 470L860 380" stroke="#5BD0BF" stroke-width="3"/>
+  <text x="180" y="360" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">App</text>
+  <text x="574" y="260" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Cache</text>
+  <text x="560" y="480" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Database</text>
+  <text x="922" y="360" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Reads</text>
+</svg>

@@ -1,0 +1,195 @@
+---
+lang: en
+slug: cache-aside
+title: "Cache-Aside"
+summary: "Loads data into the cache on demand, reducing read latency and protecting the primary store for repeated access."
+category: data
+problemFocus: latency-reduction
+problem: "The same query keeps hitting the primary datastore over and over, increasing latency and cost for hot data."
+whenToUse:
+  - "When repeated reads concentrate around a hot subset of data."
+  - "When the application can tolerate controlled expiration or brief staleness."
+  - "When serving from the primary datastore is significantly more expensive than serving from cache."
+whenNotToUse:
+  - "When data changes constantly and stale values are unacceptable."
+  - "When access is too dispersed to maintain healthy hit ratios."
+  - "When there is no TTL or invalidation strategy."
+complexity: starter
+flowType: synchronous
+tags:
+  - "cache"
+  - "reads"
+  - "latency"
+  - "ttl"
+awsServices:
+  - "Amazon ElastiCache"
+  - "Amazon DynamoDB"
+  - "AWS Lambda"
+  - "Amazon API Gateway"
+relatedPatterns:
+  - "cqrs"
+  - "api-composition"
+  - "rate-limiting"
+media:
+  heroImage:
+    src: "/media/patterns/cache-aside.svg"
+    alt: "Diagram showing reads checking the cache before the primary database."
+    caption: "The cache serves hits quickly and reaches the database only on misses."
+  diagram:
+    src: "/media/patterns/cache-aside.svg"
+    alt: "Diagram showing reads checking the cache before the primary database."
+    caption: "The cache serves hits quickly and reaches the database only on misses."
+asciiDiagram:
+  title: "Cache-Aside :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Cache-Aside :: quick read                                      |
+    +----------------------------------------------------------------+
+    | [01] The application reads from cache first                    |
+    | -> Hits return quickly without touching the primary store.     |
+    | [02] On a miss, the request falls back to the datastore        |
+    | -> Canonical data still comes from the source of truth.        |
+    | [03] The result warms the cache                                |
+    | -> Equivalent future reads become cheaper and faster.          |
+    | [04] TTL or invalidation removes old values                    |
+    | -> The core challenge is balancing freshness, simplicity, a... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon ElastiCache | Amazon DynamoDB | AWS Lambda       |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "azure-cache-aside"
+    title: "Cache-Aside pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: conceptual
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside"
+  - id: "aws-cache-read"
+    title: "Cache read behavior"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-elasticache-integration/cache-read.html"
+  - id: "aws-cache-write"
+    title: "Cache write behavior"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-elasticache-integration/cache-write.html"
+featured: true
+---
+
+## General concept
+
+Cache-Aside is the most common strategy when an application wants to keep the canonical datastore as the source of truth while avoiding repeated reads for the same hot data. <Cite ids={["azure-cache-aside"]} />
+
+The application checks the cache first, falls back to the database on a miss, and stores the result back in cache for the next equivalent read. <Cite ids={["aws-cache-read","aws-cache-write"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Application-managed read-through behavior"} type="flowchart" code={"Client[\"Client / API\"] --> App[\"Application\"]\nApp --> Cache{\"Cache hit?\"}\nCache -->|Yes| Response[\"Return cached data\"]\nCache -->|No| Database[\"Primary database\"]\nDatabase --> App\nApp --> Warm[\"Store in cache\"]\nWarm --> Response"} caption={"The application owns miss handling, warming, and expiration policy explicitly."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The application reads from cache first",
+    "description": "Hits return quickly without touching the primary store."
+  },
+  {
+    "title": "On a miss, the request falls back to the datastore",
+    "description": "Canonical data still comes from the source of truth."
+  },
+  {
+    "title": "The result warms the cache",
+    "description": "Equivalent future reads become cheaper and faster."
+  },
+  {
+    "title": "TTL or invalidation removes old values",
+    "description": "The core challenge is balancing freshness, simplicity, and cost."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Performance",
+    "benefit": "Reduces latency and pressure on the primary datastore.",
+    "cost": "Invalidation mistakes can serve stale data."
+  },
+  {
+    "area": "Cost",
+    "benefit": "Frequent reads become much cheaper.",
+    "cost": "You now operate cache infrastructure and policy."
+  },
+  {
+    "area": "Simplicity",
+    "benefit": "The pattern can be introduced without redesigning the whole model.",
+    "cost": "Behavior lives in application code instead of pure infrastructure."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There is a hot set of keys or repeated queries.",
+  "The application tolerates TTL and minor staleness.",
+  "Hit ratio, miss rate, and expiration are observable."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The team treats cache as the source of truth.",
+  "There is no invalidation path for important writes.",
+  "Access is so dispersed that the cache never really warms."
+]} />
+
+<Callout title={"Important detail"} tone="warning">
+  <p>Cache-Aside improves the read path, but it still needs a clear plan for writes, invalidation, and cache outages. <Cite ids={["aws-cache-read","aws-cache-write"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A product catalog has a small set of items that are queried repeatedly throughout the day."} services={[
+  "Amazon ElastiCache",
+  "Amazon DynamoDB",
+  "AWS Lambda",
+  "Amazon API Gateway"
+]} implementation={[
+  "The API first checks Amazon ElastiCache using the query key.",
+  "On a miss, data is loaded from Amazon DynamoDB and written back with a domain-appropriate TTL.",
+  "Writes invalidate or update the related cache key right after persistence.",
+  "Hit ratio and latency metrics help avoid running an expensive but ineffective cache."
+]} />
+
+## Common mistakes
+
+- Picking arbitrary TTL values with no relation to data semantics.
+- Forgetting that mass misses can cause a stampede on the database.
+- Ignoring behavior when the cache becomes unavailable.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Cache-Aside vs CQRS",
+    "difference": "Cache-Aside speeds up an existing model; CQRS creates a dedicated read model."
+  },
+  {
+    "title": "Cache-Aside vs API Composition",
+    "difference": "Cache-Aside reduces cost for repeated reads; API Composition joins data from multiple services."
+  }
+]} />

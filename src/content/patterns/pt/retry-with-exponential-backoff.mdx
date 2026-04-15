@@ -1,0 +1,187 @@
+---
+lang: pt
+slug: retry-with-exponential-backoff
+title: "Retry with Exponential Backoff"
+summary: "Repete falhas transitórias com intervalos crescentes e limites claros, reduzindo pressão sobre dependencias instaveis."
+category: resilience
+problemFocus: fault-isolation
+problem: "Erros temporarios ou picos curtos podem ser resolvidos com nova tentativa, mas retries agressivos em sequencia so agravam a sobrecarga."
+whenToUse:
+  - "Quando a falha e claramente transitória e a operacao pode ser repetida."
+  - "Quando a chamada e idempotente ou protegida contra duplicidade."
+  - "Quando existe limite de tentativas e budget de latencia para o usuario."
+whenNotToUse:
+  - "Quando o erro e permanente ou de negocio, nao tecnico."
+  - "Quando a operacao nao e idempotente."
+  - "Quando retries em varias camadas multiplicam pressao demais no downstream."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "retry"
+  - "backoff"
+  - "jitter"
+  - "falhas transitorias"
+awsServices:
+  - "AWS Step Functions"
+  - "AWS Lambda"
+  - "Amazon API Gateway"
+  - "Amazon SQS"
+relatedPatterns:
+  - "timeout"
+  - "circuit-breaker"
+  - "idempotent-consumer"
+media: {}
+asciiDiagram:
+  title: "Retry with Exponential Backoff :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Retry with Exponential Backoff :: leitura rapida               |
+    +----------------------------------------------------------------+
+    | [01] A chamada falha por motivo transit rio                    |
+    | -> Timeout breve, throttling ou indisponibilidade momentane... |
+    | [02] O cliente espera antes de tentar de novo                  |
+    | -> O intervalo cresce a cada tentativa para aliviar o downs... |
+    | [03] Jitter espalha as tentativas no tempo                     |
+    | -> Evita a famosa rebatida coletiva no mesmo segundo.          |
+    | [04] O fluxo para em um limite claro                           |
+    | -> Toda politica de retry precisa de max attempts e budget...  |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Step Functions | AWS Lambda | Amazon API Gateway    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "aws-builders-timeouts-retries"
+    title: "Timeouts, retries, and backoff with jitter"
+    authors:
+      - "Marc Brooker"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: conceptual
+    url: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+  - id: "aws-pg-retry-backoff"
+    title: "Retry with backoff pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/retry-backoff.html"
+  - id: "aws-stepfunctions-error-handling"
+    title: "Handling errors in Step Functions workflows"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/concepts-error-handling.html"
+featured: false
+---
+
+## Conceito geral
+
+Retry with Exponential Backoff parte da observacao de que algumas falhas sao momentaneas, mas tentar de novo imediatamente e de forma sincronizada costuma piorar ainda mais a situacao. <Cite ids={["aws-builders-timeouts-retries"]} />
+
+Ao aumentar o intervalo entre tentativas e limitar seu numero, o cliente reduz a pressao sobre o downstream enquanto ainda captura recuperacoes rapidas e legitimas. <Cite ids={["aws-pg-retry-backoff","aws-stepfunctions-error-handling"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Tentativas com espera crescente"} type="sequenceDiagram" code={"participant Client\nparticipant Service\nClient->>Service: Request\nService-->>Client: Transient failure\nClient->>Client: Wait 1s\nClient->>Service: Retry #1\nService-->>Client: Transient failure\nClient->>Client: Wait 2s + jitter\nClient->>Service: Retry #2\nService-->>Client: Success"} caption={"Backoff controla ritmo; jitter evita que todos tentem de novo no mesmo instante."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A chamada falha por motivo transitório",
+    "description": "Timeout breve, throttling ou indisponibilidade momentanea sao candidatos tipicos."
+  },
+  {
+    "title": "O cliente espera antes de tentar de novo",
+    "description": "O intervalo cresce a cada tentativa para aliviar o downstream."
+  },
+  {
+    "title": "Jitter espalha as tentativas no tempo",
+    "description": "Evita a famosa rebatida coletiva no mesmo segundo."
+  },
+  {
+    "title": "O fluxo para em um limite claro",
+    "description": "Toda politica de retry precisa de max attempts e budget de latencia."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Disponibilidade percebida",
+    "benefit": "Falhas breves podem ser mascaradas com sucesso legitimo.",
+    "cost": "Latencia aumenta enquanto o cliente tenta novamente."
+  },
+  {
+    "area": "Protecao",
+    "benefit": "Backoff reduz carga sobre dependencia instavel.",
+    "cost": "Sem limites, retries continuam sendo pressao extra."
+  },
+  {
+    "area": "Corretude",
+    "benefit": "Pode melhorar resiliencia sem mudar a semantica de negocio.",
+    "cost": "Depende de idempotencia e classificacao correta de erro."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "A operacao falha de modo transitório e previsivel.",
+  "Existe idempotencia ou controle seguro de repeticao.",
+  "A politica de retry esta centralizada e observavel."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Retries estao configurados em varias camadas da pilha sem coordenacao.",
+  "O sistema tenta novamente para erros permanentes de negocio.",
+  "Nao existe jitter nem limite maximo de tentativas."
+]} />
+
+<Callout title={"Regra de ouro"} tone="warning">
+  <p>Retry nao e remedio universal: ele so funciona quando combinado com classificacao de erro, idempotencia e um limite de paciencia bem definido. <Cite ids={["aws-builders-timeouts-retries","aws-pg-retry-backoff"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Um workflow chama API externa sujeita a throttling intermitente e pequenas indisponibilidades."} services={[
+  "AWS Step Functions",
+  "AWS Lambda",
+  "Amazon API Gateway",
+  "Amazon SQS"
+]} implementation={[
+  "AWS Step Functions define Retry com intervalSeconds, backoffRate e maxAttempts por etapa.",
+  "AWS Lambda e clientes HTTP usam timeout curto e politica de retry centralizada.",
+  "Amazon SQS pode servir como buffer quando o retry precisa sair do caminho sincronico.",
+  "Metrica de tentativas, taxa final de sucesso e latencia total ajudam a calibrar a politica."
+]} />
+
+## Erros comuns
+
+- Repetir sem jitter e causar thundering herd.
+- Fazer retry de operacoes nao idempotentes.
+- Configurar maxAttempts alto sem budget de latencia.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Retry with Exponential Backoff vs Circuit Breaker",
+    "difference": "Backoff decide como repetir; Circuit Breaker decide quando parar de tentar completamente por um tempo."
+  },
+  {
+    "title": "Retry with Exponential Backoff vs Timeout",
+    "difference": "Timeout define quando desistir de uma tentativa; Backoff define quanto esperar antes da proxima."
+  }
+]} />

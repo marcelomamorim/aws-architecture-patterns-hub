@@ -1,0 +1,34 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" rx="40" fill="#08141B"/>
+  <rect x="92" y="92" width="1416" height="716" rx="30" fill="#0D1F28" stroke="#21414A"/>
+  <path d="M290 280H1310" stroke="#2F5C66" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M290 450H1310" stroke="#2F5C66" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M290 620H1310" stroke="#2F5C66" stroke-width="2" stroke-dasharray="8 8"/>
+  <rect x="188" y="208" width="244" height="124" rx="24" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="678" y="208" width="244" height="124" rx="24" fill="#12303A" stroke="#E2B46F"/>
+  <rect x="1168" y="208" width="244" height="124" rx="24" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="188" y="388" width="244" height="124" rx="24" fill="#12303A" stroke="#E2B46F"/>
+  <rect x="678" y="388" width="244" height="124" rx="24" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="1168" y="388" width="244" height="124" rx="24" fill="#12303A" stroke="#E2B46F"/>
+  <rect x="433" y="588" width="244" height="124" rx="24" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="923" y="588" width="244" height="124" rx="24" fill="#12303A" stroke="#E2B46F"/>
+  <circle cx="555" cy="280" r="28" fill="#5BD0BF" fill-opacity="0.2" stroke="#5BD0BF"/>
+  <circle cx="800" cy="450" r="28" fill="#E2B46F" fill-opacity="0.2" stroke="#E2B46F"/>
+  <circle cx="1045" cy="620" r="28" fill="#5BD0BF" fill-opacity="0.2" stroke="#5BD0BF"/>
+  <path d="M432 270H678" stroke="#5BD0BF" stroke-width="2"/>
+  <path d="M922 270H1168" stroke="#5BD0BF" stroke-width="2"/>
+  <path d="M432 450H678" stroke="#E2B46F" stroke-width="2"/>
+  <path d="M922 450H1168" stroke="#E2B46F" stroke-width="2"/>
+  <path d="M555 332V388" stroke="#5BD0BF" stroke-width="2"/>
+  <path d="M800 512V588" stroke="#E2B46F" stroke-width="2"/>
+  <path d="M1045 332V588" stroke="#5BD0BF" stroke-width="2"/>
+  <text x="206" y="248" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="28" font-weight="700">Pattern catalog</text>
+  <text x="206" y="284" fill="#A6D2D8" font-family="Arial, sans-serif" font-size="20">visual flows, trade-offs, AWS mapping</text>
+  <text x="696" y="260" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Event flow</text>
+  <text x="1186" y="260" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">AWS implementation</text>
+  <text x="206" y="440" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Didactic layers</text>
+  <text x="696" y="440" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Trade-offs</text>
+  <text x="1186" y="440" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Related patterns</text>
+  <text x="451" y="640" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Local GIF / MP4 / SVG</text>
+  <text x="941" y="640" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Bilingual paths</text>
+</svg>

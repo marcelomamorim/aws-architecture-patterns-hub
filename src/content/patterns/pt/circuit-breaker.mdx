@@ -1,0 +1,194 @@
+---
+lang: pt
+slug: circuit-breaker
+title: "Circuit Breaker"
+summary: "Interrompe chamadas para dependencias instaveis quando a taxa de falha ultrapassa um limiar, reduzindo cascatas e acelerando recuperacao."
+category: resilience
+problemFocus: fault-isolation
+problem: "Chamadas repetidas para uma dependencia degradada consomem threads, tempo e capacidade ate contaminar todo o servico chamador."
+whenToUse:
+  - "Quando ha chamadas remotas criticas sujeitas a latencia, erro ou indisponibilidade."
+  - "Quando o chamador precisa falhar rapido e preservar recursos."
+  - "Quando existe fallback, resposta degradada ou fila de compensacao."
+whenNotToUse:
+  - "Quando a dependencia e local e barata o suficiente para retry simples."
+  - "Quando nao existe estrategia para o estado aberto e half-open."
+  - "Quando o time nao monitora taxa de falha e latencia."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "falhas"
+  - "isolamento"
+  - "dependencias"
+  - "fallback"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon CloudWatch"
+  - "AWS Step Functions"
+relatedPatterns:
+  - "timeout"
+  - "retry-with-exponential-backoff"
+  - "bulkhead"
+media:
+  heroImage:
+    src: "/media/patterns/circuit-breaker.svg"
+    alt: "Diagrama mostrando o circuito fechado, aberto e meio aberto entre servico e dependencia."
+    caption: "O circuito bloqueia chamadas repetidas ate a dependencia mostrar sinais de recuperacao."
+  diagram:
+    src: "/media/patterns/circuit-breaker.svg"
+    alt: "Diagrama mostrando o circuito fechado, aberto e meio aberto entre servico e dependencia."
+    caption: "O circuito bloqueia chamadas repetidas ate a dependencia mostrar sinais de recuperacao."
+asciiDiagram:
+  title: "Circuit Breaker :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Circuit Breaker :: leitura rapida                              |
+    +----------------------------------------------------------------+
+    | [01] O circuito comeca fechado                                 |
+    | -> Chamadas seguem normalmente enquanto a dependencia respo... |
+    | [02] Falhas e timeouts alimentam a metrica do breaker          |
+    | -> Quando o limiar estoura, novas chamadas deixam de ir par... |
+    | [03] O estado aberto falha rapido                              |
+    | -> O servico retorna fallback, fila compensatoria ou erro c... |
+    | [04] O half-open testa recuperacao                             |
+    | -> Um pequeno numero de chamadas valida se o downstream vol... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon CloudWatch     |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "nygard-release-it"
+    title: "Release It! Design and Deploy Production-Ready Software"
+    authors:
+      - "Michael T. Nygard"
+    year: 2018
+    publisher: "Pragmatic Bookshelf"
+    type: book
+    role: conceptual
+  - id: "aws-circuit-breaker"
+    title: "Circuit breaker pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/circuit-breaker.html"
+  - id: "azure-circuit-breaker"
+    title: "Circuit Breaker pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker"
+featured: true
+---
+
+## Conceito geral
+
+Circuit Breaker trata uma dependencia remota como um componente cujo comportamento precisa ser observado e governado, e nao apenas chamado em loop com retries cegos. <Cite ids={["nygard-release-it"]} />
+
+Ao abrir o circuito apos um limiar de falha, o servico preserva recursos locais, protege o usuario de latencia infinita e ganha tempo para a dependencia se recuperar. <Cite ids={["aws-circuit-breaker","azure-circuit-breaker"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Estados do circuito ao redor da dependencia"} type="stateDiagram-v2" code={"state \"Closed\" as Closed\nstate \"Open\" as Open\nstate \"Half-open\" as HalfOpen\n[*] --> Closed\nClosed --> Open: Taxa de falha / timeout ultrapassa o limiar\nOpen --> HalfOpen: Janela de recuperacao expira\nHalfOpen --> Closed: Chamadas de teste funcionam\nHalfOpen --> Open: Falha novamente"} caption={"O breaker troca disponibilidade imediata por estabilidade sistemica e recuperacao controlada."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "O circuito comeca fechado",
+    "description": "Chamadas seguem normalmente enquanto a dependencia responde dentro do esperado."
+  },
+  {
+    "title": "Falhas e timeouts alimentam a metrica do breaker",
+    "description": "Quando o limiar estoura, novas chamadas deixam de ir para o downstream."
+  },
+  {
+    "title": "O estado aberto falha rapido",
+    "description": "O servico retorna fallback, fila compensatoria ou erro controlado."
+  },
+  {
+    "title": "O half-open testa recuperacao",
+    "description": "Um pequeno numero de chamadas valida se o downstream voltou a ficar saudavel."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Protecao",
+    "benefit": "Evita cascatas de falha e exaustao de recursos locais.",
+    "cost": "Pode rejeitar chamadas durante o periodo de abertura."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "A saude da dependencia vira um estado observavel.",
+    "cost": "Limiar, janela e fallback precisam ser bem calibrados."
+  },
+  {
+    "area": "Experiencia",
+    "benefit": "Falha rapido costuma ser melhor do que travar o usuario.",
+    "cost": "Resposta degradada precisa ser entendida pelo produto."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Existem dependencias remotas com historico de instabilidade ou picos de latencia.",
+  "Falhar rapido e melhor do que segurar conexoes indefinidamente.",
+  "Ha fallback ou forma clara de comunicar degradacao."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "O breaker foi configurado sem telemetry e sem revisao dos limiares.",
+  "O sistema ainda faz retries agressivos em todas as camadas.",
+  "Nao existe estrategia para o estado half-open."
+]} />
+
+<Callout title={"Regra pratica"} tone="warning">
+  <p>Circuit Breaker funciona melhor combinado com timeout curto, retries limitados e isolamento de capacidade; sozinho ele nao salva uma dependencia mal governada. <Cite ids={["aws-circuit-breaker","nygard-release-it"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Gateway interno chama servico de pagamentos que oscila durante janelas de pico."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon CloudWatch",
+  "AWS Step Functions"
+]} implementation={[
+  "O chamador mede timeout e taxa de erro por operacao com CloudWatch.",
+  "Quando o limiar dispara, uma camada de politica ou workflow em AWS Step Functions passa a falhar rapido e acionar fallback.",
+  "Amazon API Gateway ou a propria aplicacao pode responder com mensagem degradada e correlation id.",
+  "Alarmes e dashboards acompanham transicoes de estado do breaker e tempo em circuito aberto."
+]} />
+
+## Erros comuns
+
+- Abrir o circuito apenas por contagem bruta sem considerar janela temporal.
+- Usar breaker sem timeout curto e continuar prendendo recursos locais.
+- Nao revisar fallbacks junto com o time de produto.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Circuit Breaker vs Retry with Exponential Backoff",
+    "difference": "Retry tenta novamente; Circuit Breaker decide quando parar de tentar por um periodo."
+  },
+  {
+    "title": "Circuit Breaker vs Bulkhead",
+    "difference": "Circuit Breaker protege contra dependencia degradada; Bulkhead isola pools de capacidade."
+  }
+]} />

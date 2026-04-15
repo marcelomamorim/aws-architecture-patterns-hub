@@ -1,0 +1,195 @@
+---
+lang: pt
+slug: strangler-fig
+title: "Strangler Fig"
+summary: "Moderniza um sistema legado por substituicao gradual de fluxos, com um proxy controlando o roteamento entre antigo e novo."
+category: modernization
+problemFocus: incremental-migration
+problem: "Reescrever tudo de uma vez e arriscado demais, mas o legado ja nao permite evolucao segura na velocidade do negocio."
+whenToUse:
+  - "Quando o monolito ou sistema legado ainda carrega valor e nao pode parar."
+  - "Quando voce consegue isolar fluxos ou capacidades para migrar por etapas."
+  - "Quando o time precisa reduzir risco e validar cada corte em producao."
+whenNotToUse:
+  - "Quando nao existe fronteira minima entre capacidades antigas e novas."
+  - "Quando o time nao consegue medir e governar o roteamento entre dois mundos."
+  - "Quando a reescrita gradual apenas adicionaria mais acoplamento sem plano de aposentadoria."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "modernizacao"
+  - "proxy"
+  - "legado"
+  - "migracao incremental"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon ECS"
+  - "Amazon EventBridge"
+relatedPatterns:
+  - "api-gateway"
+  - "cqrs"
+  - "database-per-service"
+media:
+  heroImage:
+    src: "/media/patterns/strangler-fig.svg"
+    alt: "Diagrama com um proxy encaminhando parte do trafego para o legado e parte para novos servicos."
+    caption: "O novo sistema envolve o antigo aos poucos ate substitui-lo por completo."
+  diagram:
+    src: "/media/patterns/strangler-fig.svg"
+    alt: "Diagrama com um proxy encaminhando parte do trafego para o legado e parte para novos servicos."
+    caption: "O novo sistema envolve o antigo aos poucos ate substitui-lo por completo."
+asciiDiagram:
+  title: "Strangler Fig :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Strangler Fig :: leitura rapida                                |
+    +----------------------------------------------------------------+
+    | [01] A fachada recebe todo o trafego                           |
+    | -> Ela vira o ponto unico de controle para cortar, testar e... |
+    | [02] Uma capacidade e extraida do legado                       |
+    | -> O fluxo novo passa a responder apenas por um recorte claro. |
+    | [03] Dados e integracoes sao alinhados                         |
+    | -> Eventos, sincronizacao e contratos evitam duplicidade de... |
+    | [04] O legado perde relevancia progressivamente                |
+    | -> Cada corte reduz a superficie do sistema antigo ate a ap... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon ECS            |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "fowler-strangler"
+    title: "Strangler Fig Application"
+    authors:
+      - "Martin Fowler"
+    year: 2004
+    publisher: "martinfowler.com"
+    type: article
+    role: conceptual
+    url: "https://martinfowler.com/bliki/StranglerFigApplication.html"
+  - id: "aws-strangler-fig"
+    title: "Strangler fig pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/strangler-fig.html"
+  - id: "aws-api-gateway-welcome"
+    title: "What is Amazon API Gateway?"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html"
+featured: true
+---
+
+## Conceito geral
+
+Strangler Fig parte da ideia de que modernizacao segura raramente acontece em um big bang; ela exige rotas pequenas, observaveis e reversiveis. <Cite ids={["fowler-strangler"]} />
+
+Um proxy ou camada de fachada controla para onde cada request vai, permitindo migrar um fluxo por vez enquanto o legado continua servindo o resto do negocio. <Cite ids={["aws-strangler-fig","aws-api-gateway-welcome"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"O proxy governa a migracao por fatias"} type="flowchart" code={"Clients[\"Consumers\"] --> Gateway[\"API Gateway / Proxy\"]\nGateway --> Legacy[\"Legacy system\"]\nGateway --> NewOrder[\"New order service\"]\nGateway --> NewCatalog[\"New catalog service\"]\nNewOrder --> Events[\"Domain events\"]\nEvents --> Legacy"} caption={"A substituicao acontece por fluxo de negocio, e nao por uma reescrita total de uma vez."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A fachada recebe todo o trafego",
+    "description": "Ela vira o ponto unico de controle para cortar, testar e reverter."
+  },
+  {
+    "title": "Uma capacidade e extraida do legado",
+    "description": "O fluxo novo passa a responder apenas por um recorte claro."
+  },
+  {
+    "title": "Dados e integracoes sao alinhados",
+    "description": "Eventos, sincronizacao e contratos evitam duplicidade desgovernada."
+  },
+  {
+    "title": "O legado perde relevancia progressivamente",
+    "description": "Cada corte reduz a superficie do sistema antigo ate a aposentadoria."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Risco",
+    "benefit": "Permite migracao incremental com rollback mais simples.",
+    "cost": "Durante a transicao existem dois mundos para operar."
+  },
+  {
+    "area": "Arquitetura",
+    "benefit": "Forca a criar fronteiras de negocio mais claras.",
+    "cost": "Dados, observabilidade e ownership ficam mais complexos temporariamente."
+  },
+  {
+    "area": "Entrega",
+    "benefit": "Cada fatia pode gerar valor antes da modernizacao completa.",
+    "cost": "Sem disciplina, a transicao pode durar demais e virar um limbo permanente."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "O legado nao pode ser desligado de uma vez.",
+  "Existem recortes de dominio com fronteiras minimamente separaveis.",
+  "Ha governanca para acompanhar roteamento, duplicidade e cortes."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Ninguem definiu criterio de pronto para aposentar o fluxo antigo.",
+  "O proxy esta virando ponto de logica de negocio acidental.",
+  "Nao existe telemetria para comparar comportamento entre antigo e novo."
+]} />
+
+<Callout title={"Disciplina de transicao"} tone="warning">
+  <p>Strangler Fig so funciona de verdade quando cada etapa fecha um compromisso de substituicao, e nao apenas mais uma camada em cima do legado. <Cite ids={["fowler-strangler","aws-strangler-fig"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Uma plataforma legado de pedidos precisa migrar para servicos menores sem interromper clientes externos."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon ECS",
+  "Amazon EventBridge"
+]} implementation={[
+  "Amazon API Gateway se torna a fachada externa para controlar roteamento por rota, versao ou cliente.",
+  "Fluxos extraidos rodam em AWS Lambda ou Amazon ECS, enquanto o legado segue atendendo o restante.",
+  "Eventos publicados em Amazon EventBridge sincronizam estados relevantes durante a convivencia.",
+  "Observabilidade por rota mostra quando um fluxo esta pronto para aposentar sua contraparte legada."
+]} />
+
+## Erros comuns
+
+- Extrair tecnicamente sem definir ownership e fronteira de negocio.
+- Nunca desligar o caminho antigo depois que o novo estabiliza.
+- Transformar a fachada em um novo monolito de integracao.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Strangler Fig vs Big Bang Rewrite",
+    "difference": "Strangler Fig reparte o risco e entrega valor por fatias; Big Bang concentra risco e validacao no fim."
+  },
+  {
+    "title": "Strangler Fig vs API Gateway",
+    "difference": "API Gateway e uma capacidade de borda; Strangler Fig e a estrategia de modernizacao que frequentemente usa essa capacidade."
+  }
+]} />

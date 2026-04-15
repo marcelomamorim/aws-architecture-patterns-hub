@@ -1,0 +1,86 @@
+---
+import { getCopy, type Language } from "../lib/site";
+import { localizedPath } from "../lib/paths";
+
+interface Props {
+  lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = getCopy(lang);
+---
+
+<footer class="footer">
+  <div class="section-frame footer-shell">
+    <div class="footer-copy">
+      <p class="footer-title">AWS Architecture Patterns Hub</p>
+      <p>{copy.footerText}</p>
+    </div>
+
+    <nav class="footer-nav" aria-label="Footer">
+      <a href={localizedPath(lang)}>{copy.home}</a>
+      <a href={localizedPath(lang, "patterns")}>{copy.catalog}</a>
+      <a href={localizedPath(lang, "services")}>{copy.services}</a>
+      <a href="https://github.com/marcelomamorim/aws-architecture-patterns-hub">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    padding: 2.5rem 0 3rem;
+    border-top: 1px solid var(--line);
+    background: var(--floating);
+  }
+
+  .footer-shell {
+    display: grid;
+    gap: 1rem;
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .footer-copy {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .footer-title,
+  .footer-copy p {
+    margin: 0;
+  }
+
+  .footer-title {
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .footer-copy p:last-child {
+    max-width: 36rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  .footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: flex-end;
+  }
+
+  .footer-nav a {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 760px) {
+    .footer-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .footer-nav {
+      justify-content: flex-start;
+    }
+  }
+</style>

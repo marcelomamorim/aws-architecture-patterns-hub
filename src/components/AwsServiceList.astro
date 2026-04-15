@@ -1,0 +1,156 @@
+---
+import AwsServiceIcon from "./AwsServiceIcon.astro";
+import type { AwsIconSize } from "../lib/aws-icons";
+import { localizedPath } from "../lib/paths";
+import { resolveServiceByName } from "../lib/services";
+import type { Language } from "../lib/site";
+
+type Variant = "compact" | "chip" | "grid";
+
+interface Props {
+  services: string[];
+  size?: AwsIconSize;
+  maxItems?: number;
+  variant?: Variant;
+  showOverflow?: boolean;
+  lang?: Language;
+  linked?: boolean;
+}
+
+const {
+  services,
+  size = 32,
+  maxItems,
+  variant = "chip",
+  showOverflow = true,
+  lang,
+  linked = false
+} = Astro.props;
+
+const visibleServices = typeof maxItems === "number" ? services.slice(0, maxItems) : services;
+const remaining = Math.max(services.length - visibleServices.length, 0);
+---
+
+<div class:list={["aws-service-list", `variant-${variant}`, `size-${size}`]}>
+  {visibleServices.map((service) => {
+    const resolved = resolveServiceByName(service);
+    const href = linked && lang && resolved ? localizedPath(lang, `services/${resolved.slug}`) : null;
+
+    return href ? (
+      <a class="aws-service-item is-link" href={href}>
+        <AwsServiceIcon service={service} size={size} decorative={true} />
+        <span class="aws-service-label">{service}</span>
+      </a>
+    ) : (
+      <span class="aws-service-item">
+        <AwsServiceIcon service={service} size={size} decorative={true} />
+        <span class="aws-service-label">{service}</span>
+      </span>
+    );
+  })}
+
+  {showOverflow && remaining > 0 && <span class="aws-service-more">+{remaining}</span>}
+</div>
+
+<style>
+  .aws-service-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .aws-service-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .aws-service-item.is-link:hover {
+    color: var(--primary);
+  }
+
+  .aws-service-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .aws-service-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .variant-compact {
+    gap: 0.55rem;
+  }
+
+  .variant-compact .aws-service-item {
+    max-width: 100%;
+    gap: 0.45rem;
+    padding: 0.3rem 0.55rem 0.3rem 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-alt);
+  }
+
+  .variant-compact .aws-service-label {
+    max-width: 14rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .variant-chip .aws-service-item {
+    gap: 0.6rem;
+    padding: 0.45rem 0.8rem 0.45rem 0.45rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%);
+  }
+
+  .variant-chip .aws-service-label {
+    max-width: 18rem;
+    color: var(--text-soft);
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+
+  .variant-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.9rem;
+  }
+
+  .variant-grid .aws-service-item {
+    gap: 0.8rem;
+    padding: 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%);
+    box-shadow: var(--surface-inset);
+  }
+
+  .variant-grid .aws-service-label {
+    white-space: normal;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.45;
+    font-weight: 600;
+  }
+
+  .size-48.variant-grid .aws-service-item {
+    align-items: center;
+  }
+</style>

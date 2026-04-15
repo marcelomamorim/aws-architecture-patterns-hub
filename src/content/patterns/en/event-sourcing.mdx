@@ -1,0 +1,194 @@
+---
+lang: en
+slug: event-sourcing
+title: "Event Sourcing"
+summary: "Persists state as an immutable sequence of events, preserving full history, replay, and point-in-time reconstruction."
+category: data
+problemFocus: auditability
+problem: "Writing only the latest state erases how the system got there, making auditability and reprocessing much harder."
+whenToUse:
+  - "When full, auditable history is central to the domain."
+  - "When you need to reconstruct past state or recalculate downstream views."
+  - "When domain events are valuable artifacts in their own right."
+whenNotToUse:
+  - "When the domain is simple and does not justify replay or event versioning."
+  - "When the team has no strategy for schema evolution."
+  - "When the main requirement is only faster reads."
+complexity: advanced
+flowType: asynchronous
+tags:
+  - "audit"
+  - "events"
+  - "replay"
+  - "history"
+awsServices:
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "Amazon Kinesis Data Streams"
+  - "AWS Lambda"
+relatedPatterns:
+  - "cqrs"
+  - "transactional-outbox"
+  - "event-carried-state-transfer"
+media:
+  heroImage:
+    src: "/media/patterns/event-sourcing.svg"
+    alt: "Diagram of an event store feeding projections and state reconstruction."
+    caption: "The event history becomes the primary source of truth and enables replay."
+  diagram:
+    src: "/media/patterns/event-sourcing.svg"
+    alt: "Diagram of an event store feeding projections and state reconstruction."
+    caption: "The event history becomes the primary source of truth and enables replay."
+asciiDiagram:
+  title: "Event Sourcing :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Event Sourcing :: quick read                                   |
+    +----------------------------------------------------------------+
+    | [01] The command validates intent in the aggregate             |
+    | -> Business decisions still happen before the event is pers... |
+    | [02] The aggregate appends a new immutable event               |
+    | -> You do not overwrite the state record; you append a new...  |
+    | [03] Projections and snapshots derive from that history        |
+    | -> Fast reads and rebuilds start from the same event timeline. |
+    | [04] Replay recovers or recalculates views                     |
+    | -> New consumers can be born from the historical log.          |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon DynamoDB | Amazon EventBridge | Amazon Kinesi... |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "fowler-event-sourcing"
+    title: "Event Sourcing"
+    authors:
+      - "Martin Fowler"
+    year: 2005
+    publisher: "martinfowler.com"
+    type: article
+    role: conceptual
+    url: "https://martinfowler.com/eaaDev/EventSourcing.html"
+  - id: "aws-event-sourcing"
+    title: "Event sourcing pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html"
+  - id: "kleppmann-ddia"
+    title: "Designing Data-Intensive Applications"
+    authors:
+      - "Martin Kleppmann"
+    year: 2017
+    publisher: "O'Reilly Media"
+    type: book
+    role: complementary
+featured: true
+---
+
+## General concept
+
+Event Sourcing replaces the question 'what is the current state?' with 'which facts happened to get here?', turning the history itself into the primary source of truth. <Cite ids={["fowler-event-sourcing"]} />
+
+That creates rich auditability, time-travel debugging, and the ability to rebuild state or projections without relying only on today's materialized view. <Cite ids={["aws-event-sourcing","kleppmann-ddia"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Immutable events as the source of truth"} type="flowchart" code={"Commands[\"Commands\"] --> Aggregate[\"Aggregate\"]\nAggregate --> EventStore[\"Event store\"]\nEventStore --> Snapshot[\"Snapshots\"]\nEventStore --> Projections[\"Projections\"]\nEventStore --> Replay[\"Replay / rebuild\"]\nProjections --> Read[\"Read models\"]"} caption={"State can be rebuilt by replaying events, while snapshots keep the cost manageable."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The command validates intent in the aggregate",
+    "description": "Business decisions still happen before the event is persisted."
+  },
+  {
+    "title": "The aggregate appends a new immutable event",
+    "description": "You do not overwrite the state record; you append a new fact."
+  },
+  {
+    "title": "Projections and snapshots derive from that history",
+    "description": "Fast reads and rebuilds start from the same event timeline."
+  },
+  {
+    "title": "Replay recovers or recalculates views",
+    "description": "New consumers can be born from the historical log."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Auditability",
+    "benefit": "The entire state journey is preserved.",
+    "cost": "Event modeling and versioning require strong discipline."
+  },
+  {
+    "area": "Flexibility",
+    "benefit": "Read models and analytics can be recalculated later.",
+    "cost": "Large replays require snapshots, batching, and operational care."
+  },
+  {
+    "area": "Complexity",
+    "benefit": "The domain is expressed as explicit business facts.",
+    "cost": "The conceptual and tooling curve rises significantly."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Auditability, time travel, and replay create real business value.",
+  "The domain can be expressed through events without major ambiguity.",
+  "There is willingness to invest in event evolution and snapshots."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Events are treated as technical logs instead of business facts.",
+  "There is no versioning or backward-compatibility strategy.",
+  "The team expects to serve simple queries directly from the event store."
+]} />
+
+<Callout title={"Important reminder"} tone="warning">
+  <p>Snapshots help performance, but they do not replace the event store as the canonical record of what really happened. <Cite ids={["fowler-event-sourcing","aws-event-sourcing"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Digital account domain needs a full timeline of operations, replay, and specialized downstream projections."} services={[
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "Amazon Kinesis Data Streams",
+  "AWS Lambda"
+]} implementation={[
+  "Commands validate aggregates and append events in Amazon DynamoDB or a durable stream such as Amazon Kinesis Data Streams.",
+  "Periodic snapshots reduce the cost of rebuilding long-lived aggregates.",
+  "AWS Lambda publishes derived events to Amazon EventBridge for projections and integrations.",
+  "Specialized read models can be recalculated from history whenever the business needs a new view."
+]} />
+
+## Common mistakes
+
+- Persisting events that are too vague to reconstruct business meaning.
+- Confusing Event Sourcing with simple technical auditing.
+- Leaving snapshots and replay without an operational plan.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Event Sourcing vs CQRS",
+    "difference": "Event Sourcing defines how state is persisted; CQRS defines how reads and writes are separated."
+  },
+  {
+    "title": "Event Sourcing vs Transactional Outbox",
+    "difference": "Outbox guarantees reliable publication alongside a write; Event Sourcing makes the event history the primary persistence model."
+  }
+]} />

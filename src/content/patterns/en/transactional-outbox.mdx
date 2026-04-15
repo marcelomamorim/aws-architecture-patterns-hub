@@ -1,0 +1,186 @@
+---
+lang: en
+slug: transactional-outbox
+title: "Transactional Outbox"
+summary: "Stores the state change and the outgoing event inside the same local transaction, then publishes safely afterward."
+category: event-driven
+problemFocus: reliable-delivery
+problem: "A service must persist a change and publish an event, but it cannot risk completing only one of those actions."
+whenToUse:
+  - "When the local write and event publication must stay atomically aligned."
+  - "When two-phase commit between database and broker is not viable."
+  - "When integration events are part of the contract between services."
+whenNotToUse:
+  - "When there is no subscribed downstream consumer or no need for reliable publication."
+  - "When publication can remain local and eventual messaging adds no value."
+  - "When the team has no plan for relay, retry, and downstream deduplication."
+complexity: advanced
+flowType: asynchronous
+tags:
+  - "outbox"
+  - "messaging"
+  - "consistency"
+  - "reliable publication"
+awsServices:
+  - "Amazon RDS"
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "AWS Lambda"
+relatedPatterns:
+  - "saga"
+  - "event-sourcing"
+  - "idempotent-consumer"
+media: {}
+asciiDiagram:
+  title: "Transactional Outbox :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Transactional Outbox :: quick read                             |
+    +----------------------------------------------------------------+
+    | [01] The business operation opens a local transaction          |
+    | -> The aggregate update and an outbox record are written to... |
+    | [02] The transaction commits state and pending message         |
+    | -> There is no gap where state changes but the event disapp... |
+    | [03] A relay publishes pending outbox records                  |
+    | -> That relay can be polling-based or driven by streams / CDC. |
+    | [04] Consumers handle duplicates and local ordering            |
+    | -> End-to-end reliability still depends on idempotent downs... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon RDS | Amazon DynamoDB | Amazon EventBridge       |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "microservices-transactional-outbox"
+    title: "Pattern: Transactional Outbox"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/data/transactional-outbox"
+  - id: "aws-transactional-outbox"
+    title: "Transactional outbox pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html"
+  - id: "microservices-patterns-book"
+    title: "Microservices Patterns"
+    authors:
+      - "Chris Richardson"
+    year: 2018
+    publisher: "Manning"
+    type: book
+    role: complementary
+featured: true
+---
+
+## General concept
+
+Transactional Outbox removes the dangerous gap between 'I wrote to the database' and 'I published to the broker', where partial failure often creates difficult reconciliation work. <Cite ids={["microservices-transactional-outbox"]} />
+
+The solution is to persist the outgoing event in the same local transaction as the business change and let a relay publish the outbox asynchronously and observably. <Cite ids={["aws-transactional-outbox","microservices-patterns-book"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"State change and event intent share one local transaction"} type="flowchart" code={"Command[\"Business command\"] --> Service[\"Service\"]\nService --> Tx[\"Local transaction\"]\nTx --> State[\"Business tables\"]\nTx --> Outbox[\"Outbox table / item\"]\nOutbox --> Relay[\"Outbox relay\"]\nRelay --> Bus[\"EventBridge / Broker\"]\nBus --> Consumers[\"Subscribers\"]"} caption={"Publication may lag, but the intent to publish is stored atomically from the start."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The business operation opens a local transaction",
+    "description": "The aggregate update and an outbox record are written together."
+  },
+  {
+    "title": "The transaction commits state and pending message",
+    "description": "There is no gap where state changes but the event disappears."
+  },
+  {
+    "title": "A relay publishes pending outbox records",
+    "description": "That relay can be polling-based or driven by streams / CDC."
+  },
+  {
+    "title": "Consumers handle duplicates and local ordering",
+    "description": "End-to-end reliability still depends on idempotent downstream processing."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Consistency",
+    "benefit": "Local state and the intent to publish stay atomically aligned.",
+    "cost": "Delivery is still eventual rather than instantaneous."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Pending publications become visible and traceable.",
+    "cost": "Relay, cleanup, and retry are now real solution components."
+  },
+  {
+    "area": "Scalability",
+    "benefit": "Avoids 2PC between database and broker.",
+    "cost": "Ordering and deduplication require careful design."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "Events are required to keep downstream services aligned.",
+  "The local database write and message must be born together.",
+  "The team accepts eventual publication with controlled replay."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "There is no strategy for stuck outbox records or stopped relays.",
+  "Consumers are not idempotent.",
+  "Stakeholders expect perfectly immediate publication."
+]} />
+
+<Callout title={"Operational reminder"} tone="warning">
+  <p>Transactional Outbox reduces partial failure at the source, but the full chain still needs DLQ, idempotency, and reconciliation. <Cite ids={["aws-transactional-outbox","microservices-patterns-book"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"An order service persists OrderCreated and must notify billing and inventory reliably."} services={[
+  "Amazon RDS",
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "AWS Lambda"
+]} implementation={[
+  "The API writes the order and an outbox record in Amazon RDS or Amazon DynamoDB inside the same local transactional unit.",
+  "A relay running on AWS Lambda or a dedicated process reads pending records and publishes them to Amazon EventBridge.",
+  "Fields such as eventId, aggregateId, and createdAt help with observability and local ordering.",
+  "Published records are marked or removed after a safe retention policy."
+]} />
+
+## Common mistakes
+
+- Publishing directly to the broker outside the transaction and keeping the partial-failure gap alive.
+- Ignoring cleanup and unbounded growth in the outbox table.
+- Skipping deduplication in consumers.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Transactional Outbox vs Event Sourcing",
+    "difference": "Outbox records the intent to publish alongside a conventional write; Event Sourcing uses events as the persistence model itself."
+  },
+  {
+    "title": "Transactional Outbox vs Saga",
+    "difference": "Outbox guarantees reliable event emission; Saga coordinates multiple business steps."
+  }
+]} />

@@ -1,0 +1,22 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="120" y="280" width="230" height="140" rx="28" fill="#12303A" stroke="#CF7A6B"/>
+  <rect x="470" y="220" width="270" height="260" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="860" y="160" width="180" height="120" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="860" y="300" width="180" height="120" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="860" y="440" width="180" height="120" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <path d="M350 350H470" stroke="#CF7A6B" stroke-width="3"/>
+  <path d="M740 350H860" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M740 350H860" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M800 350V220H860" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M800 350V500H860" stroke="#E2B46F" stroke-width="3"/>
+  <rect x="540" y="266" width="130" height="26" rx="13" fill="#E2B46F" fill-opacity="0.24" stroke="#E2B46F"/>
+  <rect x="540" y="314" width="130" height="26" rx="13" fill="#E2B46F" fill-opacity="0.24" stroke="#E2B46F"/>
+  <rect x="540" y="362" width="130" height="26" rx="13" fill="#E2B46F" fill-opacity="0.24" stroke="#E2B46F"/>
+  <rect x="540" y="410" width="130" height="26" rx="13" fill="#E2B46F" fill-opacity="0.24" stroke="#E2B46F"/>
+  <text x="156" y="360" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Burst traffic</text>
+  <text x="568" y="244" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Queue buffer</text>
+  <text x="910" y="232" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Worker A</text>
+  <text x="910" y="372" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Worker B</text>
+  <text x="910" y="512" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Worker C</text>
+</svg>

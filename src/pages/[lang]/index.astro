@@ -1,0 +1,652 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getAwsCategoryIcon } from "../../lib/aws-icons";
+import {
+  categoryLabels,
+  getCopy,
+  problemFocusLabels,
+  siteDescription,
+  type Language
+} from "../../lib/site";
+import { localizedPath, withBasePath } from "../../lib/paths";
+import { getFeaturedPatterns, getPatternsByLanguage } from "../../lib/patterns";
+
+export async function getStaticPaths() {
+  return [{ params: { lang: "pt" } }, { params: { lang: "en" } }];
+}
+
+const lang = Astro.params.lang as Language;
+const copy = getCopy(lang);
+const featured = (await getFeaturedPatterns(lang)).slice(0, 6);
+const allPatterns = await getPatternsByLanguage(lang);
+const alternates = [
+  { lang: "pt" as const, href: localizedPath("pt") },
+  { lang: "en" as const, href: localizedPath("en") }
+];
+
+const buildCatalogHref = (params: Record<string, string>) => {
+  const query = new URLSearchParams(params).toString();
+  return `${localizedPath(lang, "patterns")}${query ? `?${query}` : ""}#catalog`;
+};
+
+const pluralize = (count: number, singular: string, plural: string) =>
+  `${count} ${count === 1 ? singular : plural}`;
+
+const categoryOrder = ["event-driven", "data", "resilience", "modernization"] as const;
+const categoryDescriptions = {
+  pt: {
+    "event-driven": "Eventos, filas e fanout para sistemas mais desacoplados e reativos.",
+    data: "Leitura, escrita, ownership e histórico de dados sob diferentes restrições.",
+    resilience: "Padrões para conter falhas, sobrecarga, timeout e pressão operacional.",
+    modernization: "Estratégias para migrar o legado sem interromper a evolução do produto."
+  },
+  en: {
+    "event-driven": "Events, queues, and fanout for looser coupling and reactive systems.",
+    data: "Read, write, ownership, and history patterns under different data constraints.",
+    resilience: "Patterns to contain failures, overload, timeouts, and operational pressure.",
+    modernization: "Strategies to move away from legacy systems without stopping product evolution."
+  }
+} as const;
+
+const categories = categoryOrder.map((category) => ({
+  key: category,
+  label: categoryLabels[lang][category],
+  description: categoryDescriptions[lang][category],
+  icon: getAwsCategoryIcon(category),
+  href: buildCatalogHref({ category }),
+  countLabel:
+    lang === "pt"
+      ? pluralize(allPatterns.filter((pattern) => pattern.data.category === category).length, "padrão", "padrões")
+      : pluralize(allPatterns.filter((pattern) => pattern.data.category === category).length, "pattern", "patterns"),
+  patterns: allPatterns.filter((pattern) => pattern.data.category === category).slice(0, 3)
+}));
+
+const problemCounts = allPatterns.reduce((map, pattern) => {
+  map.set(pattern.data.problemFocus, (map.get(pattern.data.problemFocus) ?? 0) + 1);
+  return map;
+}, new Map<string, number>());
+
+const topProblems = Array.from(problemCounts.entries())
+  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  .slice(0, 6)
+  .map(([key, count]) => ({
+    key,
+    count,
+    label: problemFocusLabels[lang][key as keyof typeof problemFocusLabels.en],
+    countLabel:
+      lang === "pt"
+        ? pluralize(count, "padrão relacionado", "padrões relacionados")
+        : pluralize(count, "related pattern", "related patterns"),
+    href: buildCatalogHref({ problem: key })
+  }));
+
+const tracks = [
+  {
+    title: lang === "pt" ? "Eventos e integrações" : "Events and integration",
+    description:
+      lang === "pt"
+        ? "Entenda backbone assíncrono, entrega confiável e desacoplamento."
+        : "Understand asynchronous backbones, reliable delivery, and decoupling.",
+    slugs: ["fanout", "transactional-outbox", "event-carried-state-transfer"]
+  },
+  {
+    title: lang === "pt" ? "Consistência e dados" : "Consistency and data",
+    description:
+      lang === "pt"
+        ? "Compare escrita, leitura, histórico e autonomia de dados."
+        : "Compare write/read separation, history, and service data ownership.",
+    slugs: ["cqrs", "event-sourcing", "database-per-service"]
+  },
+  {
+    title: lang === "pt" ? "Resiliência operacional" : "Operational resilience",
+    description:
+      lang === "pt"
+        ? "Proteja dependências compartilhadas e limite falhas em cascata."
+        : "Protect shared dependencies and limit cascading failures.",
+    slugs: ["circuit-breaker", "bulkhead", "retry-with-exponential-backoff"]
+  }
+].map((track) => ({
+  ...track,
+  patterns: track.slugs.flatMap((slug) => {
+    const pattern = allPatterns.find((entry) => entry.data.slug === slug);
+    return pattern ? [pattern] : [];
+  })
+}));
+
+const heroMeta = [
+  lang === "pt" ? `${allPatterns.length} padrões publicados` : `${allPatterns.length} published patterns`,
+  lang === "pt" ? "Catálogo bilíngue PT/EN" : "Bilingual PT/EN catalog",
+  lang === "pt" ? "Ícones oficiais da AWS + Mermaid" : "Official AWS icons + Mermaid"
+];
+---
+
+<BaseLayout
+  lang={lang}
+  title={copy.home}
+  description={siteDescription[lang]}
+  currentPath={localizedPath(lang)}
+  alternates={alternates}
+>
+  <section class="home-hero pattern-grid-bg">
+    <div class="section-frame hero-layout">
+      <div class="hero-copy">
+        <span class="eyebrow">{lang === "pt" ? "Knowledge base arquitetural" : "Architecture knowledge base"}</span>
+        <h1 class="section-title hero-title">{lang === "pt" ? "Catálogo de padrões para sistemas AWS" : "A pattern catalog for AWS systems"}</h1>
+        <p class="section-copy">
+          {lang === "pt"
+            ? "Um hub bilíngue para estudar padrões consolidados com contexto, fluxo, trade-offs, implementação AWS, bibliografia e referências gráficas."
+            : "A bilingual hub to study consolidated patterns with context, flow, trade-offs, AWS implementation, bibliography, and graphical references."}
+        </p>
+
+        <div class="btn-row">
+          <a class="btn primary" href={localizedPath(lang, "patterns")}>{copy.introCtaPrimary}</a>
+          <a class="btn secondary" href="#study-entry">{lang === "pt" ? "Começar por problema" : "Start from the problem"}</a>
+        </div>
+
+        <div class="hero-meta">
+          {heroMeta.map((item) => <span>{item}</span>)}
+        </div>
+      </div>
+
+      <aside class="hero-panel surface">
+        <h2>{copy.guideTitle}</h2>
+        <p>{copy.guideText}</p>
+        <ol>
+          {copy.guideItems.map((item) => <li>{item}</li>)}
+        </ol>
+      </aside>
+    </div>
+  </section>
+
+  <section class="home-section section-frame" id="study-entry">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">{lang === "pt" ? "Comece por aqui" : "Start here"}</p>
+        <h2 class="section-title section-title-md">{lang === "pt" ? "Escolha pela pergunta arquitetural" : "Choose by the architectural question"}</h2>
+      </div>
+      <p class="section-copy section-support-copy">
+        {lang === "pt"
+          ? "Entre primeiro pelo problema que você precisa resolver e depois compare os padrões da mesma família."
+          : "Enter first through the problem you need to solve and then compare patterns from the same family."}
+      </p>
+    </div>
+
+    <div class="problem-grid">
+      {topProblems.map((problem) => (
+        <a class="problem-link surface" href={problem.href}>
+          <div class="problem-link-head">
+            <strong>{problem.label}</strong>
+            <span class="problem-count">{problem.countLabel}</span>
+          </div>
+          <span class="problem-action">{lang === "pt" ? "Abrir comparação" : "Open comparison"}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <section class="home-section section-frame">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">{lang === "pt" ? "Explorar por categoria" : "Browse by category"}</p>
+        <h2 class="section-title section-title-md">{lang === "pt" ? "Mapeie a família do padrão" : "Map the pattern family"}</h2>
+      </div>
+      <p class="section-copy section-support-copy">
+        {lang === "pt"
+          ? "Cada categoria reúne padrões que costumam aparecer juntos na mesma conversa de arquitetura."
+          : "Each category groups patterns that often appear together in the same architecture discussion."}
+      </p>
+    </div>
+
+    <div class="category-grid">
+      {categories.map((category) => (
+        <section class="category-panel surface">
+          <div class="category-head">
+            <div class="category-title">
+              <div class="category-icon">
+                <img
+                  src={withBasePath(category.icon.src)}
+                  alt={category.icon.alt}
+                  width="32"
+                  height="32"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+              <div>
+                <h3>{category.label}</h3>
+                <p>{category.countLabel}</p>
+              </div>
+            </div>
+
+            <a class="category-cta" href={category.href}>{lang === "pt" ? "Abrir categoria" : "Open category"}</a>
+          </div>
+
+          <p class="category-description">{category.description}</p>
+
+          <div class="category-links">
+            {category.patterns.map((pattern) => (
+              <a href={localizedPath(lang, `patterns/${pattern.data.slug}`)}>
+                <strong>{pattern.data.title}</strong>
+                <span>{pattern.data.summary}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  </section>
+
+  <section class="home-section section-frame">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">{copy.trailsLabel}</p>
+        <h2 class="section-title section-title-sm">{lang === "pt" ? "Trilhas sugeridas" : "Suggested tracks"}</h2>
+      </div>
+      <p class="section-copy section-support-copy">
+        {lang === "pt"
+          ? "Percursos curtos para ganhar repertório sem perder o foco comparativo."
+          : "Short study paths to gain range without losing the comparison mindset."}
+      </p>
+    </div>
+
+    <div class="track-grid">
+      {tracks.map((track) => (
+        <section class="track-panel surface">
+          <h3>{track.title}</h3>
+          <p>{track.description}</p>
+          <div class="track-links">
+            {track.patterns.map((pattern) => (
+              <a href={localizedPath(lang, `patterns/${pattern.data.slug}`)}>{pattern.data.title}</a>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  </section>
+
+  <section class="home-section section-frame" id="featured">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">{copy.featured}</p>
+        <h2 class="section-title section-title-sm">{lang === "pt" ? "Padrões para começar" : "Recommended starting points"}</h2>
+      </div>
+      <a class="btn secondary" href={localizedPath(lang, "patterns")}>{copy.explore}</a>
+    </div>
+
+    <div class="featured-list surface">
+      {featured.map((pattern) => (
+        <a class="featured-row" href={localizedPath(lang, `patterns/${pattern.data.slug}`)}>
+          <div class="featured-main">
+            <strong>{pattern.data.title}</strong>
+            <p>{pattern.data.summary}</p>
+          </div>
+          <span>{categoryLabels[lang][pattern.data.category]}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .home-hero {
+    padding: 2.9rem 0 1.9rem;
+  }
+
+  .hero-layout {
+    display: grid;
+    gap: 1.75rem;
+    grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+    align-items: start;
+  }
+
+  .hero-copy,
+  .hero-panel {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .hero-title {
+    max-width: 12ch;
+  }
+
+  .hero-panel {
+    padding: 1.35rem;
+  }
+
+  .hero-panel h2,
+  .hero-panel p,
+  .hero-panel ol {
+    margin: 0;
+  }
+
+  .hero-panel h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .hero-panel p,
+  .hero-panel ol {
+    color: var(--text-muted);
+    line-height: 1.75;
+  }
+
+  .hero-panel ol {
+    padding-left: 1.25rem;
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .hero-meta span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 0.72rem;
+    border-radius: 999px;
+    background: var(--surface-highlight);
+    color: var(--text-muted);
+    font-size: 0.84rem;
+  }
+
+  .home-section {
+    padding: 2.4rem 0;
+  }
+
+  .section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.78fr);
+    align-items: end;
+    gap: 1.5rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .section-heading > div {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .section-title-md {
+    max-width: 10ch;
+    font-size: clamp(2.2rem, 4vw, 3.35rem);
+  }
+
+  .section-title-sm {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    letter-spacing: -0.04em;
+  }
+
+  .section-support-copy {
+    max-width: 34rem;
+    justify-self: end;
+  }
+
+  .problem-grid,
+  .category-grid,
+  .track-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .problem-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .problem-link {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem 1.05rem;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      transform 140ms ease;
+  }
+
+  .problem-link:hover {
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--line));
+    background: color-mix(in srgb, var(--surface-alt) 78%, var(--surface-highlight));
+    transform: translateY(-1px);
+  }
+
+  .problem-link-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.9rem;
+  }
+
+  .problem-link strong {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+  }
+
+  .problem-count {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 1.9rem;
+    padding: 0 0.7rem;
+    border-radius: 999px;
+    background: var(--surface-highlight);
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .problem-action {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.55;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .track-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .category-panel,
+  .track-panel {
+    display: grid;
+    gap: 1.1rem;
+    padding: 1.2rem;
+  }
+
+  .category-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .category-title {
+    display: flex;
+    gap: 0.9rem;
+    align-items: start;
+  }
+
+  .category-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 14px;
+    background: var(--surface-strong);
+    border: 1px solid var(--line);
+  }
+
+  .category-head h3,
+  .track-panel h3,
+  .category-head p,
+  .track-panel p,
+  .category-description {
+    margin: 0;
+  }
+
+  .category-head h3,
+  .track-panel h3 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .category-head p,
+  .track-panel p,
+  .category-description {
+    color: var(--text-muted);
+    line-height: 1.68;
+  }
+
+  .category-description {
+    max-width: 52ch;
+  }
+
+  .category-cta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.2rem;
+    padding: 0 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .category-links,
+  .track-links {
+    display: grid;
+  }
+
+  .category-links {
+    gap: 0;
+  }
+
+  .category-links a {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.95rem 0;
+    color: var(--text-soft);
+    border-top: 1px solid var(--line);
+  }
+
+  .category-links a:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .category-links a:last-child {
+    padding-bottom: 0;
+  }
+
+  .category-links strong {
+    font-size: 0.98rem;
+    font-weight: 600;
+  }
+
+  .category-links span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+
+  .track-links {
+    gap: 0.7rem;
+    grid-template-columns: 1fr;
+  }
+
+  .track-links a {
+    padding: 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    text-align: left;
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+
+  .featured-list {
+    display: grid;
+    padding: 0.2rem 0;
+  }
+
+  .featured-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: start;
+    padding: 1.1rem 1.2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .featured-row:first-child {
+    border-top: 0;
+  }
+
+  .featured-main {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .featured-main strong {
+    font-size: 0.98rem;
+    font-weight: 600;
+  }
+
+  .featured-main p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  .featured-row span {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 1200px) {
+    .section-heading {
+      grid-template-columns: 1fr;
+    }
+
+    .section-support-copy {
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .hero-layout,
+    .category-grid,
+    .track-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .problem-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .problem-link-head,
+    .category-head {
+      display: grid;
+    }
+
+    .featured-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

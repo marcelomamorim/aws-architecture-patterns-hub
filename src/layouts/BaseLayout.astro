@@ -1,0 +1,79 @@
+---
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import "../styles/global.css";
+import {
+  defaultLanguage,
+  siteDescription,
+  siteTitle,
+  type Language
+} from "../lib/site";
+import { localizedPath, withBasePath } from "../lib/paths";
+
+interface AlternateLink {
+  lang: Language;
+  href: string;
+}
+
+interface Props {
+  lang?: Language;
+  title?: string;
+  description?: string;
+  currentPath?: string;
+  alternates?: AlternateLink[];
+}
+
+const {
+  lang = defaultLanguage,
+  title,
+  description = siteDescription[lang],
+  currentPath = localizedPath(lang),
+  alternates = []
+} = Astro.props;
+
+const pageTitle = title ? `${title} | ${siteTitle[lang]}` : siteTitle[lang];
+const canonical = new URL(currentPath, Astro.site);
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      (() => {
+        const storageKey = "aaph-theme";
+        const stored = window.localStorage.getItem(storageKey);
+        const theme =
+          stored === "dark" || stored === "light"
+            ? stored
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical.toString()} />
+    <meta property="og:image" content={new URL(withBasePath("media/og-default.svg"), Astro.site).toString()} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href={canonical.toString()} />
+    {alternates.map((alternate) => <link rel="alternate" hreflang={alternate.lang} href={new URL(alternate.href, Astro.site).toString()} />)}
+  </head>
+  <body>
+    <div class="page-shell">
+      <SiteHeader lang={lang} currentPath={currentPath} />
+      <main>
+        <slot />
+      </main>
+      <SiteFooter lang={lang} />
+    </div>
+  </body>
+</html>

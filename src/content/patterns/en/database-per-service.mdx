@@ -1,0 +1,186 @@
+---
+lang: en
+slug: database-per-service
+title: "Database per Service"
+summary: "Gives each service ownership of its own data, avoiding shared-database coupling and reinforcing domain boundaries."
+category: data
+problemFocus: service-data-ownership
+problem: "Multiple services change the same database or schema and become tightly coupled through structure, deployment, and governance."
+whenToUse:
+  - "When each service needs control over its own model and change cycle."
+  - "When the shared schema is limiting team autonomy."
+  - "When the architecture needs domain boundaries to become explicit."
+whenNotToUse:
+  - "When the organization cannot yet operate separate ownership with enough maturity."
+  - "When the main goal is only code separation without real data boundaries."
+  - "When cross-service queries still dominate the workload and no complementary read strategy exists."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "ownership"
+  - "data"
+  - "microservices"
+  - "boundaries"
+awsServices:
+  - "Amazon RDS"
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "AWS DMS"
+relatedPatterns:
+  - "api-composition"
+  - "cqrs"
+  - "event-carried-state-transfer"
+media: {}
+asciiDiagram:
+  title: "Database per Service :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Database per Service :: quick read                             |
+    +----------------------------------------------------------------+
+    | [01] Each service models and operates its own store            |
+    | -> Schema, indexing, and persistence choices follow the own... |
+    | [02] Internal changes stop breaking neighbors through the d... |
+    | -> The service contract moves from implicit SQL to explicit... |
+    | [03] Cross-domain reads need complementary patterns            |
+    | -> API Composition, CQRS, or local replicas solve distribut... |
+    | [04] Ownership and governance become clearer                   |
+    | -> Each team is accountable for its data, operations, and e... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon RDS | Amazon DynamoDB | Amazon EventBridge       |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "microservices-database-per-service"
+    title: "Pattern: Database per service"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/data/database-per-service.html"
+  - id: "aws-database-per-service"
+    title: "Database-per-service pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/database-per-service.html"
+  - id: "microservices-patterns-book"
+    title: "Microservices Patterns"
+    authors:
+      - "Chris Richardson"
+    year: 2018
+    publisher: "Manning"
+    type: book
+    role: complementary
+featured: true
+---
+
+## General concept
+
+Database per Service reinforces a fundamental microservices principle: each service should own its own data, not merely its own deployment unit. <Cite ids={["microservices-database-per-service"]} />
+
+By separating persistence per service, the system reduces structural coupling, but it must complement that autonomy with integration and read patterns across domains. <Cite ids={["aws-database-per-service","microservices-patterns-book"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Each service controls its own store"} type="flowchart" code={"Orders[\"Orders service\"] --> OrdersDB[\"Orders DB\"]\nCatalog[\"Catalog service\"] --> CatalogDB[\"Catalog DB\"]\nBilling[\"Billing service\"] --> BillingDB[\"Billing DB\"]\nOrders --> Events[\"Integration events\"]\nCatalog --> Events\nBilling --> Events"} caption={"Autonomy increases when the contract between services stops being a shared schema and becomes an API or event."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "Each service models and operates its own store",
+    "description": "Schema, indexing, and persistence choices follow the owning domain."
+  },
+  {
+    "title": "Internal changes stop breaking neighbors through the database",
+    "description": "The service contract moves from implicit SQL to explicit APIs or events."
+  },
+  {
+    "title": "Cross-domain reads need complementary patterns",
+    "description": "API Composition, CQRS, or local replicas solve distributed queries."
+  },
+  {
+    "title": "Ownership and governance become clearer",
+    "description": "Each team is accountable for its data, operations, and evolution."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Autonomy",
+    "benefit": "Teams evolve schema and persistence without constant central coordination.",
+    "cost": "Cross-service queries become harder."
+  },
+  {
+    "area": "Governance",
+    "benefit": "Data ownership aligns better with service ownership.",
+    "cost": "Duplication and synchronization across contexts need new patterns."
+  },
+  {
+    "area": "Modernization",
+    "benefit": "Helps break deep dependency on shared legacy databases.",
+    "cost": "Migrating data ownership requires careful planning and reconciliation."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The shared schema has become an autonomy bottleneck.",
+  "Services have clearer domain boundaries.",
+  "The team accepts complementary patterns for cross-service reads."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Databases are being separated without clear functional ownership.",
+  "Teams still read each other's databases for convenience.",
+  "There is no strategy for integrating data across services."
+]} />
+
+<Callout title={"Cultural shift"} tone="warning">
+  <p>Database per Service is not only about creating more databases; it is about stopping the shared schema from being the main organizational contract. <Cite ids={["microservices-database-per-service","microservices-patterns-book"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A commerce monolith separates order, catalog, and billing domains with data ownership per team."} services={[
+  "Amazon RDS",
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "AWS DMS"
+]} implementation={[
+  "Each service chooses the store that fits best, such as Amazon RDS or Amazon DynamoDB, under the ownership of that team.",
+  "Events published through Amazon EventBridge keep other contexts informed about relevant changes.",
+  "AWS DMS can help during migration stages when the source still lives in a shared database.",
+  "Cross-service reads use API Composition, CQRS, or local replicas instead of direct database access."
+]} />
+
+## Common mistakes
+
+- Creating separate databases while still sharing tables behind the scenes.
+- Ignoring a read strategy across contexts.
+- Splitting technical ownership without aligning business ownership.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Database per Service vs Shared Database",
+    "difference": "Database per Service prioritizes autonomy and ownership; a shared database prioritizes short-term convenience and creates structural coupling."
+  },
+  {
+    "title": "Database per Service vs CQRS",
+    "difference": "Database per Service defines service data ownership; CQRS defines read/write separation."
+  }
+]} />

@@ -1,0 +1,187 @@
+---
+lang: en
+slug: api-gateway
+title: "API Gateway"
+summary: "Centralizes edge concerns such as authentication, routing, versioning, and observability behind one interface."
+category: modernization
+problemFocus: api-abstraction
+problem: "Clients must deal with many services, protocols, and cross-cutting rules, increasing coupling and consumption friction."
+whenToUse:
+  - "When several services need to be exposed as one coherent API experience."
+  - "When authentication, limits, observability, and routing need a common control point."
+  - "When web, mobile, or partner clients need a stable facade."
+whenNotToUse:
+  - "When the gateway starts accumulating heavy business logic."
+  - "When one simple service does not need a dedicated edge layer."
+  - "When the team is trying to hide every internal problem behind the gateway."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "edge"
+  - "facade"
+  - "routing"
+  - "governance"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon CloudFront"
+  - "Amazon Cognito"
+relatedPatterns:
+  - "strangler-fig"
+  - "api-composition"
+  - "rate-limiting"
+media: {}
+asciiDiagram:
+  title: "API Gateway :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | API Gateway :: quick read                                      |
+    +----------------------------------------------------------------+
+    | [01] The client uses one entry point                           |
+    | -> The edge hides internal topology and distribution details.  |
+    | [02] Shared policy runs at the edge                            |
+    | -> Auth, rate limiting, observability, and small transforma... |
+    | [03] The gateway routes to the right backend                   |
+    | -> Each service still owns its own logic and data.             |
+    | [04] Clients receive a more stable API surface                 |
+    | -> Internal changes can be absorbed without breaking extern... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon CloudFront     |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "microservices-api-gateway"
+    title: "Pattern: API Gateway / Backends for Frontends"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/apigateway"
+  - id: "aws-api-gateway-welcome"
+    title: "What is Amazon API Gateway?"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html"
+  - id: "aws-api-gateway-usage-plans"
+    title: "Usage plans and API keys for REST APIs in API Gateway"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html"
+featured: true
+---
+
+## General concept
+
+The API Gateway pattern creates an edge facade that reduces client coupling to internal topology while centralizing cross-cutting policy. <Cite ids={["microservices-api-gateway"]} />
+
+It simplifies authentication, versioning, observability, and routing, as long as the team resists turning the gateway into a new business-logic monolith. <Cite ids={["aws-api-gateway-welcome","aws-api-gateway-usage-plans"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"One edge interface over multiple services"} type="flowchart" code={"Clients[\"Web / Mobile / Partners\"] --> Gateway[\"API Gateway\"]\nGateway --> Orders[\"Orders service\"]\nGateway --> Catalog[\"Catalog service\"]\nGateway --> Auth[\"Auth service\"]\nGateway --> BFF[\"BFF / Lambda adapter\"]"} caption={"Clients talk to one coherent facade while the gateway applies shared policy and routes to the right owners."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The client uses one entry point",
+    "description": "The edge hides internal topology and distribution details."
+  },
+  {
+    "title": "Shared policy runs at the edge",
+    "description": "Auth, rate limiting, observability, and small transformations stay centralized."
+  },
+  {
+    "title": "The gateway routes to the right backend",
+    "description": "Each service still owns its own logic and data."
+  },
+  {
+    "title": "Clients receive a more stable API surface",
+    "description": "Internal changes can be absorbed without breaking external consumers."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Experience",
+    "benefit": "Reduces complexity for clients and partners.",
+    "cost": "The gateway becomes a critical platform component."
+  },
+  {
+    "area": "Governance",
+    "benefit": "Centralizes edge policy.",
+    "cost": "The risk of concentrating too much logic increases."
+  },
+  {
+    "area": "Evolution",
+    "benefit": "Protects clients from frequent internal change.",
+    "cost": "Teams must maintain clear ownership between gateway and services."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There are several backends and client types consuming the platform.",
+  "Cross-cutting edge concerns deserve centralization.",
+  "The team can keep the gateway focused on edge behavior."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The gateway is accumulating business rules, joins, or persistence.",
+  "Every team depends on one central squad for trivial changes.",
+  "There is no observability to separate gateway failure from backend failure."
+]} />
+
+<Callout title={"Healthy boundary"} tone="warning">
+  <p>API Gateway should orchestrate edge concerns; when it starts making business decisions, coupling has only moved to another place. <Cite ids={["microservices-api-gateway","aws-api-gateway-welcome"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A platform exposes APIs to web, mobile, and partners with different authentication and throttling rules."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon CloudFront",
+  "Amazon Cognito"
+]} implementation={[
+  "Amazon API Gateway publishes one facade for internal and external routes.",
+  "Authentication can integrate with Amazon Cognito, custom authorizers, or IAM.",
+  "AWS Lambda works well as a lightweight adapter for BFFs or small edge transformations.",
+  "CloudFront, throttling, and usage plans protect both the user experience and the backend."
+]} />
+
+## Common mistakes
+
+- Pushing heavy composition and business logic into the gateway.
+- Creating a facade so generic that it serves no client well.
+- Forgetting that edge availability becomes product availability.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "API Gateway vs API Composition",
+    "difference": "API Gateway is the edge facade; API Composition is a technique for joining data to answer queries."
+  },
+  {
+    "title": "API Gateway vs Strangler Fig",
+    "difference": "API Gateway is a component; Strangler Fig is the migration strategy that can use that component."
+  }
+]} />

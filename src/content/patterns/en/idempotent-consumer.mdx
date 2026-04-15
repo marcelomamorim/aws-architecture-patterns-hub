@@ -1,0 +1,187 @@
+---
+lang: en
+slug: idempotent-consumer
+title: "Idempotent Consumer"
+summary: "Processes repeated messages without producing duplicated effects, protecting at-least-once delivery flows."
+category: event-driven
+problemFocus: duplicate-handling
+problem: "Retries, redelivery, and relays can deliver the same message more than once, causing duplicate side effects in the consumer."
+whenToUse:
+  - "When the system uses queues, events, or relays with at-least-once delivery."
+  - "When the consumer changes balance, inventory, status, or any other sensitive state."
+  - "When retries are a normal part of resilience."
+whenNotToUse:
+  - "When processing is purely derived and has no persistent side effects."
+  - "When there is no trustworthy identifier for deduplication."
+  - "When the domain needs behavior other than ignoring repeats."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "idempotency"
+  - "duplicates"
+  - "consumption"
+  - "retries"
+awsServices:
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+relatedPatterns:
+  - "transactional-outbox"
+  - "competing-consumers"
+  - "retry-with-exponential-backoff"
+media: {}
+asciiDiagram:
+  title: "Idempotent Consumer :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Idempotent Consumer :: quick read                              |
+    +----------------------------------------------------------------+
+    | [01] The message arrives with a stable identifier              |
+    | -> An eventId, commandId, or business key forms the dedupli... |
+    | [02] The consumer checks its idempotency record                |
+    | -> If the operation already completed, processing does not...  |
+    | [03] Only new messages apply the effect                        |
+    | -> Persistence, external side effects, or state transitions... |
+    | [04] The result is stored for future attempts                  |
+    | -> Later retries return the same behavior without duplicati... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SQS | AWS Lambda | Amazon DynamoDB               |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "microservices-idempotent-consumer"
+    title: "Handling duplicate messages using the Idempotent consumer pattern"
+    authors:
+      - "Chris Richardson"
+    year: 2020
+    publisher: "microservices.io"
+    type: article
+    role: conceptual
+    url: "https://microservices.io/post/microservices/patterns/2020/10/16/idempotent-consumer.html"
+  - id: "aws-powertools-idempotency"
+    title: "Idempotency - Powertools for AWS Lambda (TypeScript)"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Powertools for AWS Lambda documentation"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/powertools/typescript/main/features/idempotency/"
+  - id: "aws-builders-idempotent-apis"
+    title: "Making retries safe with idempotent APIs"
+    authors:
+      - "Malcolm Featonby"
+    year: 2021
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: complementary
+    url: "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+featured: false
+---
+
+## General concept
+
+Idempotent Consumer starts from the idea that, in real distributed systems, the useful question is not 'will the message be delivered once?' but 'what happens when it shows up again?'. <Cite ids={["microservices-idempotent-consumer"]} />
+
+The consumer must recognize repeats through an operation or event identifier and guarantee the same observable outcome even under retries and redelivery. <Cite ids={["aws-powertools-idempotency","aws-builders-idempotent-apis"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Deduplicate before creating side effects"} type="flowchart" code={"Queue[\"Queue / Event bus\"] --> Consumer[\"Consumer\"]\nConsumer --> Check{\"Message id already seen?\"}\nCheck -->|Yes| Ack[\"Acknowledge without side effect\"]\nCheck -->|No| Effect[\"Apply business effect\"]\nEffect --> Store[\"Persist idempotency record\"]\nStore --> Ack"} caption={"The idempotency check must happen before the external side effect, not after."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The message arrives with a stable identifier",
+    "description": "An eventId, commandId, or business key forms the deduplication basis."
+  },
+  {
+    "title": "The consumer checks its idempotency record",
+    "description": "If the operation already completed, processing does not run again."
+  },
+  {
+    "title": "Only new messages apply the effect",
+    "description": "Persistence, external side effects, or state transitions occur once."
+  },
+  {
+    "title": "The result is stored for future attempts",
+    "description": "Later retries return the same behavior without duplicating impact."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Reliability",
+    "benefit": "At-least-once delivery stops being a business risk.",
+    "cost": "You need a stable key and deduplication storage."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Retries and replay become much safer.",
+    "cost": "Retention window and expiration must be defined."
+  },
+  {
+    "area": "Modeling",
+    "benefit": "The contract becomes more explicit.",
+    "cost": "Not every operation maps naturally to idempotent behavior."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The transport uses at-least-once delivery.",
+  "The consumer effect must never be duplicated.",
+  "A stable key exists to identify the operation."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Deduplication depends on timestamps or weak heuristics.",
+  "The external side effect happens before the idempotency check.",
+  "The retention window does not cover the real redelivery risk."
+]} />
+
+<Callout title={"Key reminder"} tone="warning">
+  <p>Idempotency is an observable behavior guarantee, not merely an implementation detail hidden inside a framework. <Cite ids={["microservices-idempotent-consumer","aws-builders-idempotent-apis"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"An OrderPlaced consumer updates billing and must not produce double charges under redelivery."} services={[
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon DynamoDB",
+  "Amazon EventBridge"
+]} implementation={[
+  "Each event arrives with a consistent eventId or idempotency key.",
+  "AWS Lambda uses Amazon DynamoDB or Powertools for AWS Lambda to store idempotency state.",
+  "Only new messages execute the business effect; repeated deliveries return the same outcome or are safely ignored.",
+  "The key expiration window should reflect transport retry, replay, and retention behavior."
+]} />
+
+## Common mistakes
+
+- Deduplicating on raw payload without a stable domain key.
+- Persisting the idempotency record after the side effect.
+- Assuming FIFO removes every need for idempotency.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Idempotent Consumer vs Competing Consumers",
+    "difference": "Competing Consumers increase parallelism; Idempotent Consumer guarantees redelivery does not duplicate business effects."
+  },
+  {
+    "title": "Idempotent Consumer vs Transactional Outbox",
+    "difference": "Outbox protects publication at the source; Idempotent Consumer protects processing at the destination."
+  }
+]} />

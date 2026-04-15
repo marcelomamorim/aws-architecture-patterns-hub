@@ -1,0 +1,20 @@
+---
+const target = `${import.meta.env.BASE_URL}pt/`;
+---
+
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={target} />
+    <title>AWS Architecture Patterns Hub</title>
+  </head>
+  <body>
+    <script is:inline define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+    <p><a href={target}>Continue</a></p>
+  </body>
+</html>

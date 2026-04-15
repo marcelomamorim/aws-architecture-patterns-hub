@@ -1,0 +1,193 @@
+---
+import AwsServiceIcon from "../../../components/AwsServiceIcon.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { localizedPath } from "../../../lib/paths";
+import { getAllServices, serviceCategoryLabels } from "../../../lib/services";
+import { getCopy, type Language } from "../../../lib/site";
+
+export async function getStaticPaths() {
+  return [{ params: { lang: "pt" } }, { params: { lang: "en" } }];
+}
+
+const lang = Astro.params.lang as Language;
+const copy = getCopy(lang);
+const services = getAllServices(lang);
+const alternates = [
+  { lang: "pt" as const, href: localizedPath("pt", "services") },
+  { lang: "en" as const, href: localizedPath("en", "services") }
+];
+const allLabel = lang === "pt" ? "Todos" : "All";
+---
+
+<BaseLayout
+  lang={lang}
+  title={copy.servicesTitle}
+  description={copy.servicesIntro}
+  currentPath={localizedPath(lang, "services")}
+  alternates={alternates}
+>
+  <section class="services-shell pattern-grid-bg">
+    <div class="section-frame services-intro">
+      <div class="services-copy">
+        <span class="eyebrow">{copy.services}</span>
+        <h1 class="section-title">{copy.servicesTitle}</h1>
+        <p class="section-copy">{copy.servicesIntro}</p>
+      </div>
+
+      <div class="services-toolbar surface">
+        <label class="search-field" for={`service-search-${lang}`}>
+          <span class="search-label">{lang === "pt" ? "Busca" : "Search"}</span>
+          <input id={`service-search-${lang}`} type="search" placeholder={copy.serviceSearchPlaceholder} />
+        </label>
+
+        <div class="chip-row">
+          <button class="filter-chip is-active" type="button" data-service-filter="">
+            {allLabel}
+          </button>
+          {Object.entries(serviceCategoryLabels[lang]).map(([value, label]) => (
+            <button class="filter-chip" type="button" data-service-filter={value}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-frame service-list" id="services-catalog">
+    {services.map((service) => (
+      <a
+        class="service-card surface"
+        href={localizedPath(lang, `services/${service.slug}`)}
+        data-service-card
+        data-service-name={service.name.toLowerCase()}
+        data-service-category={service.category}
+        data-service-summary={service.summary.toLowerCase()}
+      >
+        <div class="service-card-head">
+          <AwsServiceIcon service={service.name} size={48} />
+          <div>
+            <strong>{service.name}</strong>
+            <span>{service.categoryLabel}</span>
+          </div>
+        </div>
+        <p>{service.summary}</p>
+      </a>
+    ))}
+  </section>
+</BaseLayout>
+
+<script is:inline define:vars={{ lang }}>
+  (() => {
+    const search = document.getElementById(`service-search-${lang}`);
+    const cards = Array.from(document.querySelectorAll("[data-service-card]"));
+    const chips = Array.from(document.querySelectorAll("[data-service-filter]"));
+    let activeCategory = "";
+
+    if (!search || cards.length === 0 || chips.length === 0) {
+      return;
+    }
+
+    const applyFilters = () => {
+      const query = search.value.trim().toLowerCase();
+
+      for (const card of cards) {
+        const haystack = [
+          card.getAttribute("data-service-name") ?? "",
+          card.getAttribute("data-service-category") ?? "",
+          card.getAttribute("data-service-summary") ?? ""
+        ].join(" ");
+        const category = card.getAttribute("data-service-category") ?? "";
+        const matchesQuery = !query || haystack.includes(query);
+        const matchesCategory = !activeCategory || category === activeCategory;
+        card.toggleAttribute("hidden", !(matchesQuery && matchesCategory));
+      }
+    };
+
+    search.addEventListener("input", applyFilters);
+
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        activeCategory = chip.getAttribute("data-service-filter") ?? "";
+        for (const current of chips) {
+          current.classList.toggle("is-active", current === chip);
+        }
+        applyFilters();
+      });
+    }
+  })();
+</script>
+
+<style>
+  .services-shell {
+    padding: 2.75rem 0 1.4rem;
+  }
+
+  .services-intro,
+  .services-copy {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .services-toolbar {
+    display: grid;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding: 1rem;
+  }
+
+  .service-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+    padding-bottom: 3rem;
+  }
+
+  .service-card {
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem;
+  }
+
+  .service-card-head {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+  }
+
+  .service-card-head strong,
+  .service-card p,
+  .service-card-head span {
+    display: block;
+  }
+
+  .service-card-head strong {
+    color: var(--text);
+    font-size: 1rem;
+  }
+
+  .service-card-head span {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin-top: 0.2rem;
+  }
+
+  .service-card p {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+
+  .service-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 18%, var(--line));
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 720px) {
+    .services-shell {
+      padding-top: 2.2rem;
+    }
+
+    .service-list {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

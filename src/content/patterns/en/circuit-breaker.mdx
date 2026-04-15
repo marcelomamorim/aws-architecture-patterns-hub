@@ -1,0 +1,194 @@
+---
+lang: en
+slug: circuit-breaker
+title: "Circuit Breaker"
+summary: "Stops calls to unstable dependencies when failure rates cross a threshold, reducing cascades and accelerating recovery."
+category: resilience
+problemFocus: fault-isolation
+problem: "Repeated calls into a degraded dependency burn threads, time, and local capacity until the caller becomes unhealthy as well."
+whenToUse:
+  - "When critical remote calls are exposed to latency, failures, or outages."
+  - "When the caller should fail fast and preserve local resources."
+  - "When there is a fallback, degraded response, or compensation path."
+whenNotToUse:
+  - "When the dependency is local and cheap enough for simple retries."
+  - "When there is no strategy for open and half-open behavior."
+  - "When the team does not observe latency and failure rate."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "failures"
+  - "isolation"
+  - "dependencies"
+  - "fallback"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS Lambda"
+  - "Amazon CloudWatch"
+  - "AWS Step Functions"
+relatedPatterns:
+  - "timeout"
+  - "retry-with-exponential-backoff"
+  - "bulkhead"
+media:
+  heroImage:
+    src: "/media/patterns/circuit-breaker.svg"
+    alt: "Diagram showing closed, open, and half-open states between a service and a dependency."
+    caption: "The breaker stops repeated calls until the dependency shows signs of recovery."
+  diagram:
+    src: "/media/patterns/circuit-breaker.svg"
+    alt: "Diagram showing closed, open, and half-open states between a service and a dependency."
+    caption: "The breaker stops repeated calls until the dependency shows signs of recovery."
+asciiDiagram:
+  title: "Circuit Breaker :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Circuit Breaker :: quick read                                  |
+    +----------------------------------------------------------------+
+    | [01] The circuit starts closed                                 |
+    | -> Calls flow normally while the dependency responds within... |
+    | [02] Failures and timeouts feed breaker metrics                |
+    | -> Once the threshold is crossed, new calls stop reaching t... |
+    | [03] The open state fails fast                                 |
+    | -> The service returns a fallback, compensation route, or c... |
+    | [04] Half-open probes recovery                                 |
+    | -> A small number of calls checks whether the dependency is... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS Lambda | Amazon CloudWatch     |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "nygard-release-it"
+    title: "Release It! Design and Deploy Production-Ready Software"
+    authors:
+      - "Michael T. Nygard"
+    year: 2018
+    publisher: "Pragmatic Bookshelf"
+    type: book
+    role: conceptual
+  - id: "aws-circuit-breaker"
+    title: "Circuit breaker pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/circuit-breaker.html"
+  - id: "azure-circuit-breaker"
+    title: "Circuit Breaker pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker"
+featured: true
+---
+
+## General concept
+
+Circuit Breaker treats a remote dependency as something that must be observed and governed, not simply hammered with blind retries. <Cite ids={["nygard-release-it"]} />
+
+By opening the circuit after a failure threshold, the service preserves local resources, protects the user from unbounded latency, and gives the dependency time to recover. <Cite ids={["aws-circuit-breaker","azure-circuit-breaker"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Circuit states around a dependency"} type="stateDiagram-v2" code={"state \"Closed\" as Closed\nstate \"Open\" as Open\nstate \"Half-open\" as HalfOpen\n[*] --> Closed\nClosed --> Open: Failure rate / timeout crosses threshold\nOpen --> HalfOpen: Recovery window expires\nHalfOpen --> Closed: Probe calls succeed\nHalfOpen --> Open: Probe calls fail again"} caption={"The breaker trades immediate availability for systemic stability and controlled recovery."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The circuit starts closed",
+    "description": "Calls flow normally while the dependency responds within acceptable bounds."
+  },
+  {
+    "title": "Failures and timeouts feed breaker metrics",
+    "description": "Once the threshold is crossed, new calls stop reaching the downstream service."
+  },
+  {
+    "title": "The open state fails fast",
+    "description": "The service returns a fallback, compensation route, or controlled error."
+  },
+  {
+    "title": "Half-open probes recovery",
+    "description": "A small number of calls checks whether the dependency is healthy again."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Protection",
+    "benefit": "Prevents failure cascades and local resource exhaustion.",
+    "cost": "Can reject calls during the open period."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Dependency health becomes an observable system state.",
+    "cost": "Thresholds, windows, and fallbacks need careful tuning."
+  },
+  {
+    "area": "Experience",
+    "benefit": "Fail-fast is often better than making the user wait forever.",
+    "cost": "Degraded behavior must be understood by product and support."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There are remote dependencies with instability or latency spikes.",
+  "Failing fast is better than holding connections indefinitely.",
+  "There is a clear degraded response or fallback path."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The breaker was configured without telemetry or threshold review.",
+  "The system still retries aggressively at every layer.",
+  "There is no half-open strategy."
+]} />
+
+<Callout title={"Practical rule"} tone="warning">
+  <p>Circuit Breaker works best together with short timeouts, bounded retries, and capacity isolation; by itself it does not save an unmanaged dependency. <Cite ids={["aws-circuit-breaker","nygard-release-it"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"An internal gateway calls a payment service that becomes unstable during burst windows."} services={[
+  "Amazon API Gateway",
+  "AWS Lambda",
+  "Amazon CloudWatch",
+  "AWS Step Functions"
+]} implementation={[
+  "The caller tracks timeout and error rate per operation in CloudWatch.",
+  "When the threshold trips, a policy layer or AWS Step Functions workflow starts failing fast and routing to fallback behavior.",
+  "Amazon API Gateway or the calling application can return a degraded response with a correlation id.",
+  "Alarms and dashboards follow breaker state transitions and total time spent open."
+]} />
+
+## Common mistakes
+
+- Opening the circuit on raw counts alone without a time window.
+- Using a breaker without short timeouts and still pinning local resources.
+- Skipping product review of degraded responses.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Circuit Breaker vs Retry with Exponential Backoff",
+    "difference": "Retry decides how to try again; Circuit Breaker decides when to stop trying for a while."
+  },
+  {
+    "title": "Circuit Breaker vs Bulkhead",
+    "difference": "Circuit Breaker protects against an unhealthy dependency; Bulkhead isolates capacity pools."
+  }
+]} />

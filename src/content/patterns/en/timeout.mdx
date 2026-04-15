@@ -1,0 +1,187 @@
+---
+lang: en
+slug: timeout
+title: "Timeout"
+summary: "Defines a maximum wait time for calls and tasks, preventing stuck resources and unbounded latency."
+category: resilience
+problemFocus: fault-isolation
+problem: "Without a clear wait limit, slow calls consume connections, threads, and concurrency until the whole service starts degrading."
+whenToUse:
+  - "When remote calls, I/O, or tasks can stall longer than the system should tolerate."
+  - "When the service must protect its own latency budget."
+  - "When downstream response time varies materially."
+whenNotToUse:
+  - "When the flow still does not know what maximum acceptable latency is for the user."
+  - "When timeouts are used without retry, fallback, or observability."
+  - "When the chosen value is arbitrary and never revisited."
+complexity: starter
+flowType: synchronous
+tags:
+  - "timeout"
+  - "latency"
+  - "protection"
+  - "fail-fast"
+awsServices:
+  - "AWS Lambda"
+  - "AWS Step Functions"
+  - "Amazon API Gateway"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "retry-with-exponential-backoff"
+  - "circuit-breaker"
+  - "bulkhead"
+media: {}
+asciiDiagram:
+  title: "Timeout :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Timeout :: quick read                                          |
+    +----------------------------------------------------------------+
+    | [01] The call starts with a defined time budget                |
+    | -> The limit should reflect acceptable experience and downs... |
+    | [02] The response does not arrive on time                      |
+    | -> The caller ends the attempt instead of waiting indefinit... |
+    | [03] Local resources are released                              |
+    | -> Threads, connections, and concurrency slots return to th... |
+    | [04] The application chooses the next step                     |
+    | -> Retry, fallback, queueing, or controlled failure happen...  |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Lambda | AWS Step Functions | Amazon API Gateway    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "aws-builders-timeouts-retries"
+    title: "Timeouts, retries, and backoff with jitter"
+    authors:
+      - "Marc Brooker"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: conceptual
+    url: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+  - id: "aws-stepfunctions-best-practices"
+    title: "Best practices for Step Functions"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html"
+  - id: "aws-lambda-timeout"
+    title: "Configure Lambda function timeout"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Lambda Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html"
+featured: false
+---
+
+## General concept
+
+Timeout is one of the most basic safeguards in distributed systems: it defines how long it is worth waiting before concluding that an attempt failed. <Cite ids={["aws-builders-timeouts-retries"]} />
+
+Without that limit, the system gets stuck in calls that may never return, consuming capacity that should remain available to other operations. <Cite ids={["aws-stepfunctions-best-practices","aws-lambda-timeout"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"One attempt cannot wait forever"} type="sequenceDiagram" code={"participant Caller\nparticipant Downstream\nCaller->>Downstream: Request\nNote over Caller: Start timeout budget\nDownstream--xCaller: No response in time\nCaller->>Caller: Abort call / release resources\nCaller-->>Caller: Trigger fallback or retry policy"} caption={"Timeout ends the attempt and returns control so the application can choose the next step."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The call starts with a defined time budget",
+    "description": "The limit should reflect acceptable experience and downstream history."
+  },
+  {
+    "title": "The response does not arrive on time",
+    "description": "The caller ends the attempt instead of waiting indefinitely."
+  },
+  {
+    "title": "Local resources are released",
+    "description": "Threads, connections, and concurrency slots return to the pool."
+  },
+  {
+    "title": "The application chooses the next step",
+    "description": "Retry, fallback, queueing, or controlled failure happen consciously."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Protection",
+    "benefit": "Prevents slow calls from pinning local resources.",
+    "cost": "A timeout that is too short increases false failures and unnecessary retries."
+  },
+  {
+    "area": "Experience",
+    "benefit": "Keeps the latency budget under control.",
+    "cost": "Users may receive failure sooner."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Makes slow dependencies more visible.",
+    "cost": "Picking the right value requires metrics and continuous tuning."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There are remote dependencies or long tasks in the critical path.",
+  "The team knows the maximum acceptable latency for callers.",
+  "Timeouts are tracked through metrics and alarms."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "There is no distinction between connection timeout and response timeout.",
+  "The value was chosen by guesswork and never revisited.",
+  "There is no defined action after timeout."
+]} />
+
+<Callout title={"Fine tuning"} tone="warning">
+  <p>Good timeout values do not come from guesswork; they come from latency percentiles, retry cost, and the maximum tolerable user wait. <Cite ids={["aws-builders-timeouts-retries","aws-stepfunctions-best-practices"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A synchronous service calls an internal dependency and must protect its own response budget."} services={[
+  "AWS Lambda",
+  "AWS Step Functions",
+  "Amazon API Gateway",
+  "Amazon CloudWatch"
+]} implementation={[
+  "AWS Step Functions uses TimeoutSeconds and HeartbeatSeconds so tasks do not remain stuck.",
+  "AWS Lambda sets timeouts that reflect real work and the desired caller experience.",
+  "Amazon API Gateway integration limits force asynchronous design when the backend runs too long.",
+  "CloudWatch alarms highlight timeout spikes beyond normal patterns."
+]} />
+
+## Common mistakes
+
+- Setting a very high timeout and calling that resilience.
+- Forgetting that retries also consume the same latency budget.
+- Using one identical timeout policy for cheap and expensive operations.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Timeout vs Retry with Exponential Backoff",
+    "difference": "Timeout decides when to give up on the current attempt; Retry defines how and when to try again."
+  },
+  {
+    "title": "Timeout vs Circuit Breaker",
+    "difference": "Timeout protects one call; Circuit Breaker reacts to the aggregate behavior of many calls."
+  }
+]} />

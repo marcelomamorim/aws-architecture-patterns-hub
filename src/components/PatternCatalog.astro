@@ -1,0 +1,684 @@
+---
+import AwsServiceIcon from "./AwsServiceIcon.astro";
+import AwsServiceList from "./AwsServiceList.astro";
+import {
+  categoryLabels,
+  complexityLabels,
+  flowTypeLabels,
+  getCopy,
+  problemFocusLabels,
+  type Language
+} from "../lib/site";
+import { localizedPath } from "../lib/paths";
+import type { PatternEntry } from "../lib/patterns";
+
+interface Props {
+  patterns: PatternEntry[];
+  lang: Language;
+  title: string;
+  text: string;
+}
+
+const { patterns, lang, title, text } = Astro.props;
+const copy = getCopy(lang);
+const allLabel = lang === "pt" ? "Todos" : "All";
+const resultLabel = lang === "pt" ? "padrões encontrados" : "patterns found";
+const helperText =
+  lang === "pt"
+    ? "Busque pelo nome do padrão, pelo problema arquitetural ou pela stack AWS mais recorrente."
+    : "Search by pattern name, architectural problem, or the AWS stack most often involved.";
+
+const serviceOptions = Array.from(
+  patterns
+    .flatMap((pattern) => pattern.data.awsServices)
+    .reduce((map, service) => map.set(service, (map.get(service) ?? 0) + 1), new Map())
+    .entries()
+)
+  .sort((a, b) => b[1] - a[1])
+  .map(([service]) => service)
+  .slice(0, 8);
+
+const labels = {
+  problem: copy.filterProblem,
+  complexity: copy.filterComplexity,
+  flow: copy.filterFlow,
+  aws: "AWS"
+};
+const catalogBasePath = localizedPath(lang, "patterns");
+---
+
+<section class="catalog-shell pattern-grid-bg">
+  <div class="section-frame catalog-intro">
+    <div class="catalog-copy">
+      <p class="eyebrow">{copy.catalog}</p>
+      <h1 class="section-title">{title}</h1>
+      <p class="section-copy">{text}</p>
+      <p class="catalog-helper">{helperText}</p>
+    </div>
+  </div>
+</section>
+
+<section class="catalog-toolbar-wrap">
+  <div class="section-frame toolbar-frame">
+    <div class="catalog-toolbar surface">
+      <label class="search-field" for={`search-${lang}`}>
+        <span class="search-label">{lang === "pt" ? "Busca principal" : "Primary search"}</span>
+        <input id={`search-${lang}`} type="search" placeholder={copy.searchPlaceholder} />
+      </label>
+
+      <div class="toolbar-actions">
+        <button id={`toggle-${lang}`} class="toolbar-button" type="button">
+          {lang === "pt" ? "Abrir filtros" : "Open filters"}
+        </button>
+        <button id={`clear-${lang}`} class="toolbar-button subtle" type="button">{copy.clearFilters}</button>
+      </div>
+    </div>
+
+    <div class="filter-panel surface" id={`panel-${lang}`} hidden>
+      <div class="filter-group">
+        <span>{copy.filterCategory}</span>
+        <div class="chip-row">
+          <button class="filter-chip is-active" type="button" data-filter-group="category" data-filter-value="">
+            {allLabel}
+          </button>
+          {Object.entries(categoryLabels[lang]).map(([value, label]) => (
+            <button class="filter-chip" type="button" data-filter-group="category" data-filter-value={value}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <span>{copy.filterProblem}</span>
+        <div class="chip-row">
+          <button class="filter-chip is-active" type="button" data-filter-group="problem" data-filter-value="">
+            {allLabel}
+          </button>
+          {Object.entries(problemFocusLabels[lang]).map(([value, label]) => (
+            <button class="filter-chip" type="button" data-filter-group="problem" data-filter-value={value}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div class="filter-split">
+        <div class="filter-group">
+          <span>{copy.filterComplexity}</span>
+          <div class="chip-row">
+            <button class="filter-chip is-active" type="button" data-filter-group="complexity" data-filter-value="">
+              {allLabel}
+            </button>
+            {Object.entries(complexityLabels[lang]).map(([value, label]) => (
+              <button class="filter-chip" type="button" data-filter-group="complexity" data-filter-value={value}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <span>{copy.filterFlow}</span>
+          <div class="chip-row">
+            <button class="filter-chip is-active" type="button" data-filter-group="flow" data-filter-value="">
+              {allLabel}
+            </button>
+            {Object.entries(flowTypeLabels[lang]).map(([value, label]) => (
+              <button class="filter-chip" type="button" data-filter-group="flow" data-filter-value={value}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <span>AWS</span>
+        <div class="chip-row service-chip-row">
+          <button class="filter-chip is-active" type="button" data-filter-group="service" data-filter-value="">
+            {allLabel}
+          </button>
+          {serviceOptions.map((service) => (
+            <button
+              class="filter-chip service-filter-chip"
+              type="button"
+              data-filter-group="service"
+              data-filter-value={service.toLowerCase()}
+            >
+              <AwsServiceIcon service={service} size={32} decorative={true} />
+              <span>{service}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="catalog-results section-frame" id="catalog">
+  <div class="result-bar">
+    <p class="result-count">
+      <strong id={`count-${lang}`}>{patterns.length}</strong> {resultLabel}
+    </p>
+    <p class="result-copy">
+      {lang === "pt"
+        ? "Compare problema, complexidade, fluxo e stack AWS sem sair da mesma grade."
+        : "Compare problem, complexity, flow, and AWS stack without leaving the same directory view."}
+    </p>
+  </div>
+
+  <div class="catalog-table surface">
+    <div class="catalog-head">
+      <span>{lang === "pt" ? "Padrão" : "Pattern"}</span>
+      <span>{copy.filterProblem}</span>
+      <span>{copy.filterComplexity}</span>
+      <span>{copy.filterFlow}</span>
+      <span>AWS</span>
+    </div>
+
+    {patterns.map((pattern) => (
+      <a
+        class="catalog-row"
+        data-pattern-card={lang}
+        data-slug={pattern.data.slug}
+        data-title={pattern.data.title.toLowerCase()}
+        data-summary={pattern.data.summary.toLowerCase()}
+        data-tags={pattern.data.tags.join("|").toLowerCase()}
+        data-services={pattern.data.awsServices.join("|").toLowerCase()}
+        data-category={pattern.data.category}
+        data-problem={pattern.data.problemFocus}
+        data-complexity={pattern.data.complexity}
+        data-flow={pattern.data.flowType}
+        href={localizedPath(lang, `patterns/${pattern.data.slug}`)}
+      >
+        <div class="catalog-primary">
+          <div class="catalog-title-row">
+            <strong>{pattern.data.title}</strong>
+            {pattern.data.featured && <span class="featured-flag">{lang === "pt" ? "Destaque" : "Featured"}</span>}
+          </div>
+          <p>{pattern.data.summary}</p>
+        </div>
+
+        <span class="catalog-meta" data-label={labels.problem}>
+          {problemFocusLabels[lang][pattern.data.problemFocus]}
+        </span>
+        <span class="catalog-meta" data-label={labels.complexity}>
+          {complexityLabels[lang][pattern.data.complexity]}
+        </span>
+        <span class="catalog-meta" data-label={labels.flow}>
+          {flowTypeLabels[lang][pattern.data.flowType]}
+        </span>
+        <div class="catalog-service-cell" data-label={labels.aws}>
+          <AwsServiceList services={pattern.data.awsServices} size={32} maxItems={3} variant="compact" />
+        </div>
+      </a>
+    ))}
+  </div>
+
+  <p class="catalog-empty surface" id={`empty-${lang}`} hidden>{copy.emptyState}</p>
+</section>
+
+<script is:inline define:vars={{ lang, patternsLength: patterns.length, catalogBasePath }}>
+  (() => {
+    const state = {
+      category: "",
+      problem: "",
+      complexity: "",
+      flow: "",
+      service: ""
+    };
+
+    const search = document.getElementById(`search-${lang}`);
+    const toggle = document.getElementById(`toggle-${lang}`);
+    const clear = document.getElementById(`clear-${lang}`);
+    const panel = document.getElementById(`panel-${lang}`);
+    const count = document.getElementById(`count-${lang}`);
+    const empty = document.getElementById(`empty-${lang}`);
+    const cards = Array.from(document.querySelectorAll(`[data-pattern-card="${lang}"]`));
+    const chips = Array.from(panel?.querySelectorAll("[data-filter-group]") ?? []);
+
+    if (!search || !toggle || !clear || !panel || !count || !empty || cards.length === 0) {
+      return;
+    }
+
+    const syncUrl = () => {
+      const params = new URLSearchParams();
+
+      if (search.value.trim()) {
+        params.set("q", search.value.trim());
+      }
+
+      for (const [key, value] of Object.entries(state)) {
+        if (value) {
+          params.set(key, value);
+        }
+      }
+
+      const query = params.toString();
+      const target = query ? `${catalogBasePath}?${query}#catalog` : `${catalogBasePath}#catalog`;
+      window.history.replaceState({}, "", target);
+    };
+
+    const applyChipState = () => {
+      for (const chip of chips) {
+        const group = chip.dataset.filterGroup;
+        const value = chip.dataset.filterValue ?? "";
+        chip.classList.toggle("is-active", state[group] === value);
+      }
+    };
+
+    const applyFilters = ({ sync = true } = {}) => {
+      const query = search.value.trim().toLowerCase();
+      let visibleCount = 0;
+
+      for (const card of cards) {
+        const matchesQuery =
+          !query ||
+          card.dataset.title.includes(query) ||
+          card.dataset.summary.includes(query) ||
+          card.dataset.tags.includes(query) ||
+          card.dataset.services.includes(query);
+
+        const matchesCategory = !state.category || card.dataset.category === state.category;
+        const matchesProblem = !state.problem || card.dataset.problem === state.problem;
+        const matchesComplexity = !state.complexity || card.dataset.complexity === state.complexity;
+        const matchesFlow = !state.flow || card.dataset.flow === state.flow;
+        const matchesService = !state.service || card.dataset.services.includes(state.service);
+
+        const visible =
+          matchesQuery &&
+          matchesCategory &&
+          matchesProblem &&
+          matchesComplexity &&
+          matchesFlow &&
+          matchesService;
+
+        card.hidden = !visible;
+
+        if (visible) {
+          visibleCount += 1;
+        }
+      }
+
+      count.textContent = String(visibleCount);
+      empty.hidden = visibleCount !== 0;
+
+      if (sync) {
+        syncUrl();
+      }
+    };
+
+    const readInitialState = () => {
+      const params = new URLSearchParams(window.location.search);
+      search.value = params.get("q") ?? "";
+
+      for (const key of Object.keys(state)) {
+        state[key] = params.get(key) ?? "";
+      }
+
+      if (search.value || Object.values(state).some(Boolean)) {
+        panel.hidden = false;
+      }
+    };
+
+    toggle.addEventListener("click", () => {
+      panel.hidden = !panel.hidden;
+    });
+
+    search.addEventListener("input", () => applyFilters());
+
+    clear.addEventListener("click", () => {
+      search.value = "";
+      state.category = "";
+      state.problem = "";
+      state.complexity = "";
+      state.flow = "";
+      state.service = "";
+      applyChipState();
+      applyFilters();
+    });
+
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        const group = chip.dataset.filterGroup;
+        const value = chip.dataset.filterValue ?? "";
+        state[group] = value;
+        applyChipState();
+        applyFilters();
+      });
+    }
+
+    readInitialState();
+    applyChipState();
+    applyFilters({ sync: false });
+    count.textContent = String(Number(count.textContent || patternsLength));
+  })();
+</script>
+
+<style>
+  .catalog-shell {
+    padding: 2.5rem 0 1.5rem;
+  }
+
+  .catalog-intro,
+  .catalog-copy {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .catalog-helper {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--text-muted);
+    font-size: 0.94rem;
+    line-height: 1.7;
+  }
+
+  .catalog-toolbar-wrap {
+    padding: 0 0 1.5rem;
+  }
+
+  .toolbar-frame {
+    position: sticky;
+    top: 5rem;
+    z-index: 15;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .catalog-toolbar,
+  .filter-panel {
+    padding: 1.15rem;
+  }
+
+  .catalog-toolbar {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .search-field {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .search-label {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .search-field input {
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    box-shadow: inset 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  .toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    justify-content: flex-end;
+  }
+
+  .toolbar-button,
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 2.6rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .toolbar-button:hover,
+  .filter-chip:hover,
+  .filter-chip.is-active {
+    border-color: rgba(var(--primary-rgb), 0.32);
+    color: var(--primary);
+  }
+
+  .filter-chip.is-active {
+    background: rgba(var(--primary-rgb), 0.08);
+  }
+
+  .toolbar-button.subtle {
+    background: var(--surface-alt);
+  }
+
+  .filter-panel {
+    display: grid;
+    gap: 1.15rem;
+  }
+
+  .filter-group {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .filter-group > span {
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .filter-split {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .service-chip-row {
+    gap: 0.7rem;
+  }
+
+  .service-filter-chip {
+    justify-content: flex-start;
+  }
+
+  .catalog-results {
+    display: grid;
+    gap: 1rem;
+    padding-bottom: 4rem;
+  }
+
+  .result-bar {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .result-count,
+  .result-copy {
+    margin: 0;
+  }
+
+  .result-count {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+
+  .result-count strong {
+    color: var(--text);
+  }
+
+  .result-copy {
+    max-width: 46ch;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+    text-align: right;
+  }
+
+  .catalog-table {
+    overflow: hidden;
+  }
+
+  .catalog-head,
+  .catalog-row {
+    display: grid;
+    gap: 1.1rem;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.15fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+
+  .catalog-head {
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .catalog-row {
+    padding: 1.15rem;
+    border-top: 1px solid var(--line);
+    transition: background-color 140ms ease;
+  }
+
+  .catalog-row:first-of-type {
+    border-top: 0;
+  }
+
+  .catalog-row:hover {
+    background: rgba(var(--primary-rgb), 0.035);
+  }
+
+  .catalog-primary {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .catalog-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .catalog-title-row strong {
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .featured-flag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0 0.6rem;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb), 0.08);
+    color: var(--primary);
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+
+  .catalog-primary p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .catalog-meta,
+  .catalog-service-cell {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .catalog-empty {
+    margin: 0;
+    padding: 1.25rem;
+  }
+
+  @media (max-width: 1120px) {
+    .catalog-toolbar,
+    .filter-split,
+    .result-bar {
+      grid-template-columns: 1fr;
+    }
+
+    .toolbar-actions {
+      justify-content: flex-start;
+    }
+
+    .result-bar {
+      display: grid;
+    }
+
+    .result-copy {
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .catalog-head {
+      display: none;
+    }
+
+    .catalog-row {
+      grid-template-columns: 1fr;
+      gap: 0.8rem;
+      padding: 1rem;
+    }
+
+    .catalog-meta,
+    .catalog-service-cell {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .catalog-meta::before,
+    .catalog-service-cell::before {
+      content: attr(data-label);
+      color: var(--text);
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .catalog-shell {
+      padding-top: 2rem;
+    }
+
+    .toolbar-frame {
+      top: 5.2rem;
+    }
+
+    .service-filter-chip span {
+      max-width: 12rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+</style>

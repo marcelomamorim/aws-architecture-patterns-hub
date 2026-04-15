@@ -1,0 +1,185 @@
+---
+lang: pt
+slug: event-carried-state-transfer
+title: "Event-Carried State Transfer"
+summary: "Propaga por evento o estado necessario para outros servicos consumirem sem consultas sincronas constantes ao sistema de origem."
+category: event-driven
+problemFocus: data-propagation
+problem: "Servicos downstream dependem de dados que pertencem a outro contexto e acabam fazendo consultas sincronas repetidas, gerando acoplamento temporal."
+whenToUse:
+  - "Quando consumidores precisam de uma copia local suficiente de dados remotos."
+  - "Quando o custo de chamadas sincronas entre servicos se tornou alto demais."
+  - "Quando consistencia eventual e aceitavel para a leitura local."
+whenNotToUse:
+  - "Quando o dado muda rapido demais e stale data e inviavel."
+  - "Quando eventos nao conseguem carregar informacao suficiente para o uso do downstream."
+  - "Quando o consumo precisa sempre do estado canônico mais recente em tempo real."
+complexity: advanced
+flowType: asynchronous
+tags:
+  - "replicacao"
+  - "estado"
+  - "eventos"
+  - "dados distribuidos"
+awsServices:
+  - "Amazon EventBridge"
+  - "Amazon SQS"
+  - "AWS Lambda"
+  - "Amazon DynamoDB"
+relatedPatterns:
+  - "fanout"
+  - "cqrs"
+  - "database-per-service"
+media: {}
+asciiDiagram:
+  title: "Event-Carried State Transfer :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Event-Carried State Transfer :: leitura rapida                 |
+    +----------------------------------------------------------------+
+    | [01] O servico dono publica um evento com estado relevante     |
+    | -> O payload precisa carregar dados suficientes para o cons... |
+    | [02] Consumidores recebem e materializam copia local           |
+    | -> Cada contexto guarda apenas o recorte necessario.           |
+    | [03] Leituras passam a ser locais                              |
+    | -> Consultas sincronas ao servico de origem ficam muito men... |
+    | [04] Mudancas futuras atualizam a replica                      |
+    | -> A consistencia agora depende da qualidade do fluxo de ev... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon EventBridge | Amazon SQS | AWS Lambda            |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "bellemare-event-driven-microservices"
+    title: "Building Event-Driven Microservices"
+    authors:
+      - "Adam Bellemare"
+    year: 2020
+    publisher: "O'Reilly Media"
+    type: book
+    role: conceptual
+  - id: "aws-eventbridge-bus"
+    title: "Amazon EventBridge event buses"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon EventBridge User Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus.html"
+  - id: "kleppmann-ddia"
+    title: "Designing Data-Intensive Applications"
+    authors:
+      - "Martin Kleppmann"
+    year: 2017
+    publisher: "O'Reilly Media"
+    type: book
+    role: complementary
+featured: false
+---
+
+## Conceito geral
+
+Event-Carried State Transfer reduz o acoplamento temporal entre servicos ao distribuir, via evento, o subconjunto de estado que os consumidores realmente precisam para trabalhar localmente. <Cite ids={["bellemare-event-driven-microservices"]} />
+
+Em vez de consultar o servico dono a cada leitura, o consumidor mantem uma representacao local atualizada assincronamente, aceitando consistencia eventual em troca de autonomia. <Cite ids={["aws-eventbridge-bus","kleppmann-ddia"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"O produtor envia estado suficiente para o consumidor"} type="flowchart" code={"Owner[\"Service owner\"] --> Event[\"State-carrying event\"]\nEvent --> Bus[\"EventBridge bus\"]\nBus --> ConsumerA[\"Consumer A local store\"]\nBus --> ConsumerB[\"Consumer B local store\"]\nConsumerA --> QueryA[\"Local reads\"]\nConsumerB --> QueryB[\"Local reads\"]"} caption={"O consumidor prefere ler da propria copia local em vez de chamar o servico dono a cada operacao."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "O servico dono publica um evento com estado relevante",
+    "description": "O payload precisa carregar dados suficientes para o consumidor."
+  },
+  {
+    "title": "Consumidores recebem e materializam copia local",
+    "description": "Cada contexto guarda apenas o recorte necessario."
+  },
+  {
+    "title": "Leituras passam a ser locais",
+    "description": "Consultas sincronas ao servico de origem ficam muito menos frequentes."
+  },
+  {
+    "title": "Mudancas futuras atualizam a replica",
+    "description": "A consistencia agora depende da qualidade do fluxo de eventos."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Autonomia",
+    "benefit": "Consumidores deixam de depender de chamadas sincronas para dados frequentes.",
+    "cost": "Cada copia local precisa ser atualizada e reconciliada."
+  },
+  {
+    "area": "Desempenho",
+    "benefit": "Read path fica mais rapido e previsivel.",
+    "cost": "O payload do evento pode crescer e exigir governanca."
+  },
+  {
+    "area": "Consistencia",
+    "benefit": "O sistema tolera independencia entre servicos.",
+    "cost": "Staleness e reprocessamento precisam ser aceitos e monitorados."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "Consumidores leem os mesmos dados remotos com frequencia.",
+  "Uma copia local parcial resolve a maioria dos casos.",
+  "A equipe aceita consistencia eventual e replay."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Os eventos carregam o modelo inteiro do servico dono sem curadoria.",
+  "Nao ha ownership claro da replica local.",
+  "Consumidores continuam chamando o produtor para quase tudo."
+]} />
+
+<Callout title={"Equilibrio necessario"} tone="warning">
+  <p>O objetivo nao e espalhar todo o banco por eventos, e sim publicar apenas o estado que reduz dependencia sincronica de forma consciente. <Cite ids={["bellemare-event-driven-microservices","kleppmann-ddia"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Servico de catalogo publica detalhes essenciais do produto para servicos de carrinho e recomendacao manterem leitura local."} services={[
+  "Amazon EventBridge",
+  "Amazon SQS",
+  "AWS Lambda",
+  "Amazon DynamoDB"
+]} implementation={[
+  "Amazon EventBridge distribui eventos de produto enriquecidos com os campos realmente necessarios aos consumidores.",
+  "AWS Lambda materializa copias locais em Amazon DynamoDB para cada contexto consumidor.",
+  "Amazon SQS pode absorver backlog e permitir reprocessamento controlado.",
+  "Versionamento de schema e metadados de evento ajudam a proteger a evolucao do contrato."
+]} />
+
+## Erros comuns
+
+- Enviar payloads gigantes sem considerar ownership e evolucao.
+- Nao versionar eventos que carregam estado.
+- Esperar consistencia instantanea entre replicas locais.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Event-Carried State Transfer vs API Composition",
+    "difference": "State Transfer replica dados antes da consulta; API Composition junta dados sob demanda na hora da resposta."
+  },
+  {
+    "title": "Event-Carried State Transfer vs CQRS",
+    "difference": "CQRS separa leitura e escrita dentro de um dominio; State Transfer propaga estado entre dominios distintos."
+  }
+]} />

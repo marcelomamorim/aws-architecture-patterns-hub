@@ -1,0 +1,17 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="120" y="280" width="220" height="140" rx="28" fill="#12303A" stroke="#E2B46F"/>
+  <rect x="460" y="240" width="250" height="220" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="840" y="160" width="200" height="140" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="840" y="420" width="200" height="140" rx="28" fill="#10262E" stroke="#5BD0BF"/>
+  <path d="M340 350H460" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M710 300H840" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M710 420H840" stroke="#5BD0BF" stroke-width="3"/>
+  <circle cx="545" cy="314" r="22" fill="#E2B46F" fill-opacity="0.18" stroke="#E2B46F"/>
+  <circle cx="595" cy="350" r="22" fill="#E2B46F" fill-opacity="0.18" stroke="#E2B46F"/>
+  <circle cx="645" cy="386" r="22" fill="#E2B46F" fill-opacity="0.18" stroke="#E2B46F"/>
+  <text x="158" y="360" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="26">Command</text>
+  <text x="498" y="278" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Event log</text>
+  <text x="874" y="242" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Aggregate</text>
+  <text x="892" y="500" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="22">Projections</text>
+</svg>

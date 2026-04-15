@@ -1,0 +1,195 @@
+---
+lang: en
+slug: saga
+title: "Saga"
+summary: "Coordinates distributed transactions through local steps and compensations without relying on a global commit across services."
+category: event-driven
+problemFocus: workflow-orchestration
+problem: "A business operation spans multiple services and consistency must be preserved even though a traditional distributed transaction is not practical."
+whenToUse:
+  - "When a business process crosses multiple microservices that own their data."
+  - "When rollback is needed but two-phase commit would be too expensive or rigid."
+  - "When long-lived steps and explicit business dependencies exist between participants."
+whenNotToUse:
+  - "When the whole operation fits inside a simple local transaction."
+  - "When compensations have not been modeled as business behavior yet."
+  - "When the flow is still too unstable to define clear boundaries."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "orchestration"
+  - "compensation"
+  - "workflow"
+  - "consistency"
+awsServices:
+  - "AWS Step Functions"
+  - "Amazon EventBridge"
+  - "AWS Lambda"
+  - "Amazon SQS"
+relatedPatterns:
+  - "transactional-outbox"
+  - "competing-consumers"
+  - "cqrs"
+media:
+  heroImage:
+    src: "/media/patterns/saga.svg"
+    alt: "Saga diagram showing local transactions and compensating steps across services."
+    caption: "Each step commits locally and the saga coordinates success or compensation."
+  diagram:
+    src: "/media/patterns/saga.svg"
+    alt: "Saga diagram showing local transactions and compensating steps across services."
+    caption: "Each step commits locally and the saga coordinates success or compensation."
+asciiDiagram:
+  title: "Saga :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Saga :: quick read                                             |
+    +----------------------------------------------------------------+
+    | [01] The saga starts from a business command                   |
+    | -> The flow knows which services participate and in which o... |
+    | [02] Each service runs its own local transaction               |
+    | -> There is no global lock; each step commits in its own st... |
+    | [03] Failures trigger compensations                            |
+    | -> Undo logic must be treated as first-class behavior.         |
+    | [04] The process ends in an observable final state             |
+    | -> The application communicates success, rejection, or time... |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Step Functions | Amazon EventBridge | AWS Lambda    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "garcia-molina-sagas"
+    title: "Sagas"
+    authors:
+      - "Hector Garcia-Molina"
+      - "Kenneth Salem"
+    year: 1987
+    publisher: "ACM SIGMOD Record"
+    type: paper
+    role: conceptual
+  - id: "aws-saga-pattern"
+    title: "Saga pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/saga-pattern.html"
+  - id: "aws-stepfunctions-best-practices"
+    title: "Best practices for Step Functions"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html"
+featured: true
+---
+
+## General concept
+
+Saga is the classic answer for consistency in distributed business processes where each service owns its own state and a global commit becomes impractical. <Cite ids={["garcia-molina-sagas"]} />
+
+Instead of one transaction, the workflow is broken into local transactions and compensations that can be coordinated through explicit orchestration or event choreography. <Cite ids={["aws-saga-pattern","aws-stepfunctions-best-practices"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Success and compensation sequence"} type="sequenceDiagram" code={"participant Order as Order Service\nparticipant Saga as Saga Orchestrator\nparticipant Payment as Payment Service\nparticipant Inventory as Inventory Service\nOrder->>Saga: Start order workflow\nSaga->>Payment: Reserve payment\nPayment-->>Saga: Confirmed\nSaga->>Inventory: Reserve stock\nInventory-->>Saga: Failed\nSaga->>Payment: Compensate payment\nSaga-->>Order: Order rejected"} caption={"When a step fails, the saga triggers compensations to undo already-confirmed effects."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The saga starts from a business command",
+    "description": "The flow knows which services participate and in which order."
+  },
+  {
+    "title": "Each service runs its own local transaction",
+    "description": "There is no global lock; each step commits in its own store."
+  },
+  {
+    "title": "Failures trigger compensations",
+    "description": "Undo logic must be treated as first-class behavior."
+  },
+  {
+    "title": "The process ends in an observable final state",
+    "description": "The application communicates success, rejection, or timeout with context."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Consistency",
+    "benefit": "Keeps services aligned without classic distributed transactions.",
+    "cost": "Correctness now depends on sound, observable compensations."
+  },
+  {
+    "area": "Modeling",
+    "benefit": "The business workflow becomes explicit.",
+    "cost": "Boundaries and intermediate states take more effort to design."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Each service remains autonomous.",
+    "cost": "Tracing, retries, and timeouts require stronger instrumentation."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The process crosses multiple services with separate databases.",
+  "There is clarity on what must be compensated when something fails.",
+  "The team wants the distributed workflow to be operationally visible."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Compensations were not modeled or tested.",
+  "The flow depends on irreversible side effects without mitigation.",
+  "There is no timeout or reconciliation for stuck sagas."
+]} />
+
+<Callout title={"Important decision"} tone="warning">
+  <p>Before choosing orchestration or choreography, map which team needs to see, govern, and debug the distributed workflow every day. <Cite ids={["aws-saga-pattern","aws-stepfunctions-best-practices"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Checkout coordinates payment, inventory, and shipping across separate services."} services={[
+  "AWS Step Functions",
+  "Amazon EventBridge",
+  "AWS Lambda",
+  "Amazon SQS"
+]} implementation={[
+  "AWS Step Functions models saga state and the main transitions.",
+  "Each step calls AWS Lambda, queues, or internal APIs to execute the local transaction.",
+  "Technical failures use explicit retries; business failures trigger compensations.",
+  "Relevant milestones can be published to Amazon EventBridge for observability and integrations."
+]} />
+
+## Common mistakes
+
+- Treating compensation as a technical detail instead of business behavior.
+- Forgetting intermediate states and making support harder.
+- Pushing everything into a diffuse choreography with no clear owner.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Saga vs Transactional Outbox",
+    "difference": "Saga coordinates multiple local transactions; Transactional Outbox guarantees event publication alongside one local write."
+  },
+  {
+    "title": "Saga vs Queue-Based Load Leveling",
+    "difference": "Saga models process consistency; Load Leveling absorbs bursts and decouples pace."
+  }
+]} />

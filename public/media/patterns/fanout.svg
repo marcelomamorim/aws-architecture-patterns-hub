@@ -1,0 +1,23 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#0A1820"/>
+  <rect x="120" y="280" width="220" height="140" rx="28" fill="#12303A" stroke="#5BD0BF"/>
+  <rect x="620" y="120" width="220" height="120" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="620" y="300" width="220" height="120" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="620" y="480" width="220" height="120" rx="28" fill="#10262E" stroke="#E2B46F"/>
+  <rect x="920" y="120" width="150" height="120" rx="24" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="920" y="300" width="150" height="120" rx="24" fill="#10262E" stroke="#5BD0BF"/>
+  <rect x="920" y="480" width="150" height="120" rx="24" fill="#10262E" stroke="#5BD0BF"/>
+  <path d="M340 350H620" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M480 350V180H620" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M480 350V540H620" stroke="#5BD0BF" stroke-width="3"/>
+  <path d="M840 180H920" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M840 360H920" stroke="#E2B46F" stroke-width="3"/>
+  <path d="M840 540H920" stroke="#E2B46F" stroke-width="3"/>
+  <text x="152" y="354" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="28" font-weight="700">Producer</text>
+  <text x="660" y="186" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Topic</text>
+  <text x="660" y="366" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Queue</text>
+  <text x="660" y="546" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="24">Webhook</text>
+  <text x="952" y="186" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Billing</text>
+  <text x="952" y="366" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">Analytics</text>
+  <text x="952" y="546" fill="#F6F3EC" font-family="Arial, sans-serif" font-size="20">CRM</text>
+</svg>

@@ -1,0 +1,186 @@
+---
+lang: en
+slug: bulkhead
+title: "Bulkhead"
+summary: "Separates capacity pools, queues, or resources so saturation in one workload does not take down the rest of the system."
+category: resilience
+problemFocus: fault-isolation
+problem: "One workload class or slow dependency can consume all available concurrency and spill its failure into users and flows that should have been isolated."
+whenToUse:
+  - "When different traffic classes compete for the same limited resources."
+  - "When a slow dependency can drain all process concurrency."
+  - "When workloads have different priorities and SLAs."
+whenNotToUse:
+  - "When the system is too small to justify multiple pools."
+  - "When the team cannot measure capacity per workload."
+  - "When separation does not reflect any real business priority."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "isolation"
+  - "capacity"
+  - "concurrency"
+  - "priorities"
+awsServices:
+  - "Amazon ECS"
+  - "AWS Lambda"
+  - "Amazon SQS"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "circuit-breaker"
+  - "queue-based-load-leveling"
+  - "rate-limiting"
+media: {}
+asciiDiagram:
+  title: "Bulkhead :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Bulkhead :: quick read                                         |
+    +----------------------------------------------------------------+
+    | [01] Workloads are classified                                  |
+    | -> Priority, user tier, or operation type define the partit... |
+    | [02] Each group gets isolated capacity                         |
+    | -> Separate queues, concurrency ceilings, or pools make iso... |
+    | [03] Failures stay inside the affected compartment             |
+    | -> The rest of the system keeps protected capacity.            |
+    | [04] Observability drives rebalancing                          |
+    | -> Limits must evolve with usage and SLA expectations.         |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon ECS | AWS Lambda | Amazon SQS                    |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "nygard-release-it"
+    title: "Release It! Design and Deploy Production-Ready Software"
+    authors:
+      - "Michael T. Nygard"
+    year: 2018
+    publisher: "Pragmatic Bookshelf"
+    type: book
+    role: conceptual
+  - id: "aws-builders-dependency-isolation"
+    title: "Using dependency isolation to contain concurrency overload"
+    authors:
+      - "Amazon Web Services"
+    year: 2020
+    publisher: "Amazon Builders' Library"
+    type: article
+    role: implementation
+    url: "https://aws.amazon.com/builders-library/dependency-isolation/"
+  - id: "azure-bulkhead"
+    title: "Bulkhead pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: complementary
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/bulkhead"
+featured: false
+---
+
+## General concept
+
+Bulkhead starts from the same intuition as ship compartments: damage in one area should not sink the whole vessel. <Cite ids={["nygard-release-it","azure-bulkhead"]} />
+
+In practice, that means separating queues, concurrency, connection pools, or compute capacity so one degraded workload cannot consume everything. <Cite ids={["aws-builders-dependency-isolation"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"Capacity segmented by workload class"} type="flowchart" code={"Ingress[\"Ingress\"] --> Premium[\"Premium pool\"]\nIngress --> Standard[\"Standard pool\"]\nPremium --> ServiceA[\"Isolated capacity A\"]\nStandard --> ServiceB[\"Isolated capacity B\"]\nServiceA --> Downstream[\"Dependencies\"]\nServiceB --> Downstream"} caption={"Each compartment preserves part of the system for its own class of work."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "Workloads are classified",
+    "description": "Priority, user tier, or operation type define the partitioning."
+  },
+  {
+    "title": "Each group gets isolated capacity",
+    "description": "Separate queues, concurrency ceilings, or pools make isolation real."
+  },
+  {
+    "title": "Failures stay inside the affected compartment",
+    "description": "The rest of the system keeps protected capacity."
+  },
+  {
+    "title": "Observability drives rebalancing",
+    "description": "Limits must evolve with usage and SLA expectations."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Protection",
+    "benefit": "Prevents one workload from taking down the entire system.",
+    "cost": "Capacity can sit idle in one pool while another saturates."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Per-workload SLAs are easier to govern.",
+    "cost": "Sizing and tuning become more complex."
+  },
+  {
+    "area": "Product",
+    "benefit": "Lets you protect critical traffic explicitly.",
+    "cost": "Priority choices must be visible and justified."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "There are workloads with clearly different impact and priority.",
+  "A slow dependency has already caused concurrency exhaustion.",
+  "The team has telemetry per pool or traffic class."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "Pools were created without business or operational rationale.",
+  "There is no periodic review of how capacity is split.",
+  "Isolation is only logical, with no real infrastructure limits."
+]} />
+
+<Callout title={"Do not confuse the layers"} tone="warning">
+  <p>Bulkhead does not remove the need for timeouts or circuit breakers; it makes sure that when something goes wrong, not everyone pays the same price. <Cite ids={["aws-builders-dependency-isolation","azure-bulkhead"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Premium and standard APIs share the same backend but must not lose capacity at the same time."} services={[
+  "Amazon ECS",
+  "AWS Lambda",
+  "Amazon SQS",
+  "Amazon CloudWatch"
+]} implementation={[
+  "Separate Amazon SQS queues and distinct concurrency limits in AWS Lambda or Amazon ECS isolate workload classes.",
+  "Each pool receives its own CloudWatch alarms and dashboards.",
+  "More unstable dependencies can use dedicated workers so they do not consume the whole fleet.",
+  "Periodic reviews adjust each compartment size based on real usage."
+]} />
+
+## Common mistakes
+
+- Creating too many pools and fragmenting capacity with no rationale.
+- Failing to reserve capacity for truly critical flows.
+- Calling it bulkhead when only the code is separated.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Bulkhead vs Circuit Breaker",
+    "difference": "Bulkhead isolates capacity; Circuit Breaker decides when to stop calling an unhealthy dependency."
+  },
+  {
+    "title": "Bulkhead vs Rate Limiting",
+    "difference": "Bulkhead reserves capacity by compartment; Rate Limiting controls how much traffic enters within a window."
+  }
+]} />

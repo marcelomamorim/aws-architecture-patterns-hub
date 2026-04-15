@@ -1,0 +1,187 @@
+---
+lang: en
+slug: rate-limiting
+title: "Rate Limiting"
+summary: "Controls how much traffic can enter per client, route, or time window to protect shared capacity."
+category: resilience
+problemFocus: traffic-governance
+problem: "Without entry governance, legitimate bursts or abusive traffic consume all capacity before the backend can react."
+whenToUse:
+  - "When shared resources need protection from bursts or abuse."
+  - "When different clients or plans deserve different limits."
+  - "When the system needs predictable behavior under high demand."
+whenNotToUse:
+  - "When there is no clarity on what the business actually wants to protect or prioritize."
+  - "When acceptable rate changes too often and there is no telemetry to recalibrate."
+  - "When the real bottleneck sits deep in the backend and edge limiting is not the leverage point."
+complexity: intermediate
+flowType: synchronous
+tags:
+  - "limits"
+  - "throttling"
+  - "traffic"
+  - "edge protection"
+awsServices:
+  - "Amazon API Gateway"
+  - "AWS WAF"
+  - "Amazon CloudFront"
+  - "Amazon CloudWatch"
+relatedPatterns:
+  - "bulkhead"
+  - "api-gateway"
+  - "queue-based-load-leveling"
+media: {}
+asciiDiagram:
+  title: "Rate Limiting :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Rate Limiting :: quick read                                    |
+    +----------------------------------------------------------------+
+    | [01] Traffic is classified by a limiting key                   |
+    | -> Client, API key, route, or IP may define the consumption... |
+    | [02] The edge calculates usage in a window                     |
+    | -> Token bucket, fixed window, or similar policy controls t... |
+    | [03] Excess requests are rejected or diverted                  |
+    | -> The system preserves capacity for traffic inside the con... |
+    | [04] Metrics recalibrate the policy                            |
+    | -> Good limits come from real usage rather than intuition a... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon API Gateway | AWS WAF | Amazon CloudFront        |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "azure-rate-limiting"
+    title: "Rate Limiting pattern"
+    authors:
+      - "Microsoft"
+    year: 2025
+    publisher: "Azure Architecture Center"
+    type: official-doc
+    role: conceptual
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting-pattern"
+  - id: "aws-api-gateway-usage-plans"
+    title: "Usage plans and API keys for REST APIs in API Gateway"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon API Gateway Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html"
+  - id: "aws-rate-based-rules"
+    title: "Using rate-based rule statements in AWS WAF"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS WAF Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based.html"
+featured: false
+---
+
+## General concept
+
+Rate Limiting governs incoming traffic before overload becomes an internal problem, defining how much each caller or route can consume within a window. <Cite ids={["azure-rate-limiting"]} />
+
+It protects shared resources, improves predictability, and turns finite capacity into an explicit usage contract. <Cite ids={["aws-api-gateway-usage-plans","aws-rate-based-rules"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"The edge decides how much enters in each window"} type="flowchart" code={"Clients[\"Clients\"] --> Edge{\"Within rate limit?\"}\nEdge -->|Yes| Backend[\"Protected backend\"]\nEdge -->|No| Reject[\"429 / Block / Queue\"]"} caption={"Limiting at the edge is usually cheaper and safer than waiting for the backend to discover the overload."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "Traffic is classified by a limiting key",
+    "description": "Client, API key, route, or IP may define the consumption identity."
+  },
+  {
+    "title": "The edge calculates usage in a window",
+    "description": "Token bucket, fixed window, or similar policy controls the pace."
+  },
+  {
+    "title": "Excess requests are rejected or diverted",
+    "description": "The system preserves capacity for traffic inside the contract."
+  },
+  {
+    "title": "Metrics recalibrate the policy",
+    "description": "Good limits come from real usage rather than intuition alone."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Protection",
+    "benefit": "Prevents bursts from taking down the whole platform.",
+    "cost": "Legitimate clients may receive 429s during peaks."
+  },
+  {
+    "area": "Product",
+    "benefit": "Enables differentiated plans and priorities.",
+    "cost": "Poorly explained policies create integration frustration."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Makes consumption more predictable and observable.",
+    "cost": "Limits must be revisited as traffic changes."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "The edge receives variable traffic or abuse risk.",
+  "The business wants differentiated contracts by client or plan.",
+  "Shared capacity needs protection before the backend saturates."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "There is no clear response for throttled clients.",
+  "Limits were copied from somewhere else without observing real use.",
+  "The team is using rate limiting to hide permanent internal bottlenecks."
+]} />
+
+<Callout title={"Make the policy explicit"} tone="warning">
+  <p>Rate limiting works best when the limit makes business sense and is communicated as part of the contract instead of appearing as a technical surprise. <Cite ids={["azure-rate-limiting","aws-api-gateway-usage-plans"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"A public API must protect backends and differentiate free and enterprise customers."} services={[
+  "Amazon API Gateway",
+  "AWS WAF",
+  "Amazon CloudFront",
+  "Amazon CloudWatch"
+]} implementation={[
+  "Amazon API Gateway applies throttling and quotas per usage plan or route.",
+  "AWS WAF uses rate-based rules to contain volumetric abuse before traffic reaches the backend.",
+  "CloudWatch monitors 429s, bursts, latency, and saturation per consumer.",
+  "Clients receive clear feedback about limits, reset behavior, and upgrade paths."
+]} />
+
+## Common mistakes
+
+- Applying the same limit to every client and use case.
+- Failing to expose 429 responses and limit headers consistently.
+- Treating rate limiting as a substitute for baseline scalability.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Rate Limiting vs Bulkhead",
+    "difference": "Rate Limiting controls ingress; Bulkhead separates internal capacity."
+  },
+  {
+    "title": "Rate Limiting vs Queue-Based Load Leveling",
+    "difference": "Rate Limiting rejects or slows intake; Load Leveling accepts and buffers work for later processing."
+  }
+]} />

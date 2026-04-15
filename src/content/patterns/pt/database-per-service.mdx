@@ -1,0 +1,186 @@
+---
+lang: pt
+slug: database-per-service
+title: "Database per Service"
+summary: "Entrega ownership de dados a cada servico, evitando acoplamento por banco compartilhado e reforcando fronteiras de dominio."
+category: data
+problemFocus: service-data-ownership
+problem: "Varios servicos alteram o mesmo banco ou schema e acabam se acoplando por estrutura de dado, deployment e governanca."
+whenToUse:
+  - "Quando cada servico precisa controlar seu proprio modelo e ciclo de mudanca."
+  - "Quando o schema compartilhado esta travando autonomia entre times."
+  - "Quando a arquitetura quer refletir fronteiras de dominio de forma mais clara."
+whenNotToUse:
+  - "Quando a organizacao ainda nao consegue operar ownership separado com maturidade."
+  - "Quando a principal demanda e apenas dividir codigo, sem fronteiras reais de dado."
+  - "Quando queries cross-service ainda dominam o uso sem estrategia complementar."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "ownership"
+  - "dados"
+  - "microservicos"
+  - "fronteiras"
+awsServices:
+  - "Amazon RDS"
+  - "Amazon DynamoDB"
+  - "Amazon EventBridge"
+  - "AWS DMS"
+relatedPatterns:
+  - "api-composition"
+  - "cqrs"
+  - "event-carried-state-transfer"
+media: {}
+asciiDiagram:
+  title: "Database per Service :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Database per Service :: leitura rapida                         |
+    +----------------------------------------------------------------+
+    | [01] Cada servico modela e opera seu store                     |
+    | -> Schema, indice e estrategia de persistencia passam a seg... |
+    | [02] Mudancas internas deixam de quebrar vizinhos por banco    |
+    | -> O contrato entre servicos sai do SQL implicito e vira AP... |
+    | [03] Consultas entre dominios pedem padroes complementares     |
+    | -> API Composition, CQRS ou replicas locais entram para res... |
+    | [04] Ownership e governanca ficam mais claros                  |
+    | -> Cada time responde por dado, operacao e evolucao de seu...  |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon RDS | Amazon DynamoDB | Amazon EventBridge       |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "microservices-database-per-service"
+    title: "Pattern: Database per service"
+    authors:
+      - "Chris Richardson"
+    year: 2025
+    publisher: "microservices.io"
+    type: pattern-catalog
+    role: conceptual
+    url: "https://microservices.io/patterns/data/database-per-service.html"
+  - id: "aws-database-per-service"
+    title: "Database-per-service pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/database-per-service.html"
+  - id: "microservices-patterns-book"
+    title: "Microservices Patterns"
+    authors:
+      - "Chris Richardson"
+    year: 2018
+    publisher: "Manning"
+    type: book
+    role: complementary
+featured: true
+---
+
+## Conceito geral
+
+Database per Service fortalece um principio fundamental de arquitetura de microservicos: cada servico deve ser dono do proprio dado, e nao apenas do proprio deploy. <Cite ids={["microservices-database-per-service"]} />
+
+Ao separar persistencia por servico, o sistema reduz acoplamento estrutural, mas precisa complementar essa autonomia com padroes de leitura e integracao entre dominios. <Cite ids={["aws-database-per-service","microservices-patterns-book"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Cada servico controla o proprio store"} type="flowchart" code={"Orders[\"Orders service\"] --> OrdersDB[\"Orders DB\"]\nCatalog[\"Catalog service\"] --> CatalogDB[\"Catalog DB\"]\nBilling[\"Billing service\"] --> BillingDB[\"Billing DB\"]\nOrders --> Events[\"Integration events\"]\nCatalog --> Events\nBilling --> Events"} caption={"A autonomia aumenta quando o contrato entre servicos deixa de ser o schema compartilhado e passa a ser a API ou o evento."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "Cada servico modela e opera seu store",
+    "description": "Schema, indice e estrategia de persistencia passam a seguir o dominio dono."
+  },
+  {
+    "title": "Mudancas internas deixam de quebrar vizinhos por banco",
+    "description": "O contrato entre servicos sai do SQL implicito e vira API ou evento."
+  },
+  {
+    "title": "Consultas entre dominios pedem padroes complementares",
+    "description": "API Composition, CQRS ou replicas locais entram para resolver leitura cruzada."
+  },
+  {
+    "title": "Ownership e governanca ficam mais claros",
+    "description": "Cada time responde por dado, operacao e evolucao de seu contexto."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Autonomia",
+    "benefit": "Times evoluem schema e persistencia sem coordenacao central constante.",
+    "cost": "Queries cross-service ficam mais trabalhosas."
+  },
+  {
+    "area": "Governanca",
+    "benefit": "Ownership de dado se alinha melhor com ownership de servico.",
+    "cost": "Duplicacao e sincronizacao entre contextos precisam de novos padroes."
+  },
+  {
+    "area": "Modernizacao",
+    "benefit": "Ajuda a quebrar dependencias profundas em bancos legados compartilhados.",
+    "cost": "Migrar ownership de dado exige planejamento e reconciliacao cuidadosos."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "O schema compartilhado virou gargalo de autonomia.",
+  "Os servicos possuem fronteiras de dominio mais claras.",
+  "O time aceita usar padroes complementares para leitura cruzada."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "A separacao de bancos esta acontecendo sem ownership funcional claro.",
+  "As equipes continuam acessando o banco do vizinho por conveniencia.",
+  "Nao existe estrategia para integrar dados entre servicos."
+]} />
+
+<Callout title={"Mudanca cultural"} tone="warning">
+  <p>Database per Service nao e apenas criar bancos novos; e parar de tratar o schema compartilhado como o principal contrato da organizacao. <Cite ids={["microservices-database-per-service","microservices-patterns-book"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Monolito de comercio separa dominios de pedidos, catalogo e faturamento com ownership de dados por equipe."} services={[
+  "Amazon RDS",
+  "Amazon DynamoDB",
+  "Amazon EventBridge",
+  "AWS DMS"
+]} implementation={[
+  "Cada servico escolhe o store mais adequado, como Amazon RDS ou Amazon DynamoDB, sob ownership do proprio time.",
+  "Eventos publicados em Amazon EventBridge mantem outros contextos informados sobre mudancas relevantes.",
+  "AWS DMS pode ajudar em etapas de migracao quando a origem ainda esta em banco compartilhado.",
+  "Queries cross-service usam API Composition, CQRS ou replicas locais em vez de acesso direto ao banco alheio."
+]} />
+
+## Erros comuns
+
+- Criar bancos separados e continuar compartilhando tabelas por tras.
+- Ignorar estrategia de leitura entre contextos.
+- Separar ownership tecnico sem alinhar ownership de negocio.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Database per Service vs Shared Database",
+    "difference": "Database per Service privilegia autonomia e ownership; shared database privilegia conveniencia imediata e cria acoplamento estrutural."
+  },
+  {
+    "title": "Database per Service vs CQRS",
+    "difference": "Database per Service define ownership por servico; CQRS define separacao de leitura e escrita."
+  }
+]} />

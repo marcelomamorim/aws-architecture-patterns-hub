@@ -1,0 +1,195 @@
+---
+lang: pt
+slug: saga
+title: "Saga"
+summary: "Coordena transacoes distribuidas por etapas locais e compensacoes, sem depender de um commit global entre servicos."
+category: event-driven
+problemFocus: workflow-orchestration
+problem: "Uma operacao de negocio cruza varios servicos e a consistencia entre eles precisa ser mantida mesmo sem transacao distribuida tradicional."
+whenToUse:
+  - "Quando um processo de negocio atravessa varios microservicos com dados proprios."
+  - "Quando voce precisa de rollback sem bloquear tudo com two-phase commit."
+  - "Quando ha passos long-lived e dependencias de negocio claras entre eles."
+whenNotToUse:
+  - "Quando toda a operacao cabe em uma transacao local simples."
+  - "Quando as compensacoes ainda nao estao modeladas como regra de negocio."
+  - "Quando o fluxo muda a todo momento e ainda nao possui fronteiras estaveis."
+complexity: advanced
+flowType: hybrid
+tags:
+  - "orquestracao"
+  - "compensacao"
+  - "workflow"
+  - "consistencia"
+awsServices:
+  - "AWS Step Functions"
+  - "Amazon EventBridge"
+  - "AWS Lambda"
+  - "Amazon SQS"
+relatedPatterns:
+  - "transactional-outbox"
+  - "competing-consumers"
+  - "cqrs"
+media:
+  heroImage:
+    src: "/media/patterns/saga.svg"
+    alt: "Diagrama de saga com passos de sucesso e compensacao entre servicos."
+    caption: "Cada passo confirma localmente e a saga coordena sucesso ou compensacao."
+  diagram:
+    src: "/media/patterns/saga.svg"
+    alt: "Diagrama de saga com passos de sucesso e compensacao entre servicos."
+    caption: "Cada passo confirma localmente e a saga coordena sucesso ou compensacao."
+asciiDiagram:
+  title: "Saga :: diagrama terminal"
+  art: |-
+    +----------------------------------------------------------------+
+    | Saga :: leitura rapida                                         |
+    +----------------------------------------------------------------+
+    | [01] A saga inicia com um comando de negocio                   |
+    | -> O fluxo sabe quais servicos precisam participar e em que... |
+    | [02] Cada servico executa sua transacao local                  |
+    | -> Nao ha lock global; cada passo confirma no proprio banco.   |
+    | [03] Falhas disparam compensacoes                              |
+    | -> A logica de desfazer precisa ser desenhada como primeira... |
+    | [04] O processo fecha com um estado final observavel           |
+    | -> A aplicacao comunica sucesso, rejeicao ou timeout com co... |
+    +----------------------------------------------------------------+
+    | AWS :: AWS Step Functions | Amazon EventBridge | AWS Lambda    |
+    +----------------------------------------------------------------+
+  caption: "Leitura sintetica em ASCII do fluxo principal, pensada para consulta rapida."
+references:
+  - id: "garcia-molina-sagas"
+    title: "Sagas"
+    authors:
+      - "Hector Garcia-Molina"
+      - "Kenneth Salem"
+    year: 1987
+    publisher: "ACM SIGMOD Record"
+    type: paper
+    role: conceptual
+  - id: "aws-saga-pattern"
+    title: "Saga pattern"
+    authors:
+      - "Amazon Web Services"
+    year: 2024
+    publisher: "AWS Prescriptive Guidance"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/saga-pattern.html"
+  - id: "aws-stepfunctions-best-practices"
+    title: "Best practices for Step Functions"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "AWS Step Functions Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html"
+featured: true
+---
+
+## Conceito geral
+
+Saga e a resposta classica para consistencia em processos distribuidos quando cada servico controla seu proprio estado e um commit global se torna impraticavel. <Cite ids={["garcia-molina-sagas"]} />
+
+Em vez de uma transacao unica, o fluxo e quebrado em passos locais e compensacoes, que podem ser coordenados por orquestracao explicita ou por troca de eventos. <Cite ids={["aws-saga-pattern","aws-stepfunctions-best-practices"]} />
+
+## Representacao grafica
+
+<ArchitectureDiagram title={"Sequencia de sucesso e compensacao"} type="sequenceDiagram" code={"participant Order as Order Service\nparticipant Saga as Saga Orchestrator\nparticipant Payment as Payment Service\nparticipant Inventory as Inventory Service\nOrder->>Saga: Start order workflow\nSaga->>Payment: Reserve payment\nPayment-->>Saga: Confirmed\nSaga->>Inventory: Reserve stock\nInventory-->>Saga: Failed\nSaga->>Payment: Compensate payment\nSaga-->>Order: Order rejected"} caption={"Quando um passo falha, a saga dispara compensacoes para desfazer efeitos ja confirmados."} />
+
+## Fluxo visual
+
+<FlowSteps steps={[
+  {
+    "title": "A saga inicia com um comando de negocio",
+    "description": "O fluxo sabe quais servicos precisam participar e em que ordem."
+  },
+  {
+    "title": "Cada servico executa sua transacao local",
+    "description": "Nao ha lock global; cada passo confirma no proprio banco."
+  },
+  {
+    "title": "Falhas disparam compensacoes",
+    "description": "A logica de desfazer precisa ser desenhada como primeira classe."
+  },
+  {
+    "title": "O processo fecha com um estado final observavel",
+    "description": "A aplicacao comunica sucesso, rejeicao ou timeout com contexto."
+  }
+]} />
+
+## Trade-offs principais
+
+<TradeoffTable rows={[
+  {
+    "area": "Consistencia",
+    "benefit": "Mantem alinhamento entre servicos sem transacao distribuida classica.",
+    "cost": "A consistencia passa a depender de compensacoes corretas e observaveis."
+  },
+  {
+    "area": "Modelagem",
+    "benefit": "O fluxo de negocio fica explicito.",
+    "cost": "As fronteiras e estados intermediarios ficam mais trabalhosos de desenhar."
+  },
+  {
+    "area": "Operacao",
+    "benefit": "Cada servico segue autonomo.",
+    "cost": "Tracing, retry e timeout exigem instrumentacao forte."
+  }
+]} />
+
+## Checklist rapido
+
+### Quando faz sentido
+
+<Checklist items={[
+  "O processo cruza varios servicos com bancos separados.",
+  "Existe clareza sobre o que precisa ser compensado em caso de falha.",
+  "O time quer tornar o workflow distribuido explicitamente observavel."
+]} />
+
+### Sinais de alerta
+
+<Checklist tone="warning" items={[
+  "Compensacoes nao foram modeladas ou testadas.",
+  "O fluxo depende de efeitos externos irreversiveis sem estrategia de mitigacao.",
+  "Nao ha timeout e reconciliacao para sagas presas."
+]} />
+
+<Callout title={"Decisao importante"} tone="warning">
+  <p>Antes de escolher orquestracao ou coreografia, vale mapear qual time precisa enxergar, governar e depurar o fluxo distribuido no dia a dia. <Cite ids={["aws-saga-pattern","aws-stepfunctions-best-practices"]} /></p>
+</Callout>
+
+## Implementacao na AWS
+
+<AwsExample scenario={"Checkout distribui reserva de pagamento, estoque e expedicao em servicos distintos."} services={[
+  "AWS Step Functions",
+  "Amazon EventBridge",
+  "AWS Lambda",
+  "Amazon SQS"
+]} implementation={[
+  "AWS Step Functions modela o estado da saga e suas transicoes principais.",
+  "Cada passo chama AWS Lambda, filas ou APIs internas para executar a transacao local.",
+  "Falhas tecnicas usam retry com politicas explicitas; falhas de negocio disparam compensacoes.",
+  "Eventos relevantes podem ser publicados em Amazon EventBridge para observabilidade e integracoes."
+]} />
+
+## Erros comuns
+
+- Tratar compensacao como detalhe tecnico e nao como regra de negocio.
+- Esquecer estados intermediarios e dificultar suporte operacional.
+- Misturar tudo em uma coreografia difusa sem dono claro do fluxo.
+
+## Comparacoes rapidas
+
+<ComparisonBlock items={[
+  {
+    "title": "Saga vs Transactional Outbox",
+    "difference": "Saga coordena varias transacoes locais; Transactional Outbox garante publicar eventos junto com uma unica escrita."
+  },
+  {
+    "title": "Saga vs Queue-Based Load Leveling",
+    "difference": "Saga modela consistencia de processo; Load Leveling absorve picos e desacopla ritmo."
+  }
+]} />

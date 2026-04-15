@@ -1,0 +1,73 @@
+---
+interface Props {
+  scenario: string;
+  services: string[];
+  implementation: string[];
+}
+
+const { scenario, services, implementation } = Astro.props;
+---
+
+<section class="aws-example">
+  <header>
+    <span class="eyebrow">AWS</span>
+    <h3>{scenario}</h3>
+  </header>
+
+  <div class="service-row">
+    {services.map((service) => <span>{service}</span>)}
+  </div>
+
+  <ol>
+    {implementation.map((step) => <li>{step}</li>)}
+  </ol>
+</section>
+
+<style>
+  .aws-example {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, rgba(var(--primary-rgb), 0.04), rgba(var(--primary-rgb), 0.01));
+  }
+
+  .aws-example header {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .aws-example h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .service-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .service-row span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 0.65rem;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb), 0.08);
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .aws-example ol {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--text-soft);
+  }
+</style>

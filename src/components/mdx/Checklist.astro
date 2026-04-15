@@ -1,0 +1,46 @@
+---
+interface Props {
+  items: string[];
+  tone?: "positive" | "warning";
+}
+
+const { items, tone = "positive" } = Astro.props;
+---
+
+<ul class:list={["checklist", tone]}>
+  {items.map((item) => <li>{item}</li>)}
+</ul>
+
+<style>
+  .checklist {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0;
+    margin: 1.35rem 0;
+    list-style: none;
+  }
+
+  .checklist li {
+    position: relative;
+    padding: 0.85rem 0.95rem 0.85rem 1.2rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--text-soft);
+  }
+
+  .checklist li::before {
+    content: "";
+    position: absolute;
+    top: 1.15rem;
+    left: 0.65rem;
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb), 0.8);
+  }
+
+  .checklist.warning li::before {
+    background: rgba(180, 35, 24, 0.75);
+  }
+</style>

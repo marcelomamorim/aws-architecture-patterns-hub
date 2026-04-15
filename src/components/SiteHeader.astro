@@ -1,0 +1,123 @@
+---
+import LanguageSwitcher from "./LanguageSwitcher.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+import { localizedPath } from "../lib/paths";
+import { getCopy, type Language } from "../lib/site";
+
+interface Props {
+  lang: Language;
+  currentPath: string;
+}
+
+const { lang, currentPath } = Astro.props;
+const copy = getCopy(lang);
+---
+
+<header class="header-wrap">
+  <div class="section-frame header-shell">
+    <a class="brand" href={localizedPath(lang)} aria-label={copy.home}>
+      <span class="brand-mark">AWS Architecture Patterns</span>
+      <strong>Hub</strong>
+    </a>
+
+    <nav class="header-nav" aria-label={copy.patterns}>
+      <a href={localizedPath(lang)}>{copy.home}</a>
+      <a href={localizedPath(lang, "patterns")}>{copy.catalog}</a>
+      <a href={localizedPath(lang, "services")}>{copy.services}</a>
+    </nav>
+
+    <div class="header-actions">
+      <ThemeToggle lang={lang} />
+      <LanguageSwitcher currentLang={lang} currentPath={currentPath} />
+    </div>
+  </div>
+</header>
+
+<style>
+  .header-wrap {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 30;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+    background: var(--floating-strong);
+    backdrop-filter: blur(14px);
+  }
+
+  .header-shell {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    min-height: 4.5rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .brand-mark {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .brand strong {
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .header-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+
+  .header-nav a:hover {
+    background: var(--surface-highlight);
+    color: var(--primary);
+  }
+
+  .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  @media (max-width: 760px) {
+    .header-shell {
+      grid-template-columns: 1fr auto;
+      padding: 0.75rem 0;
+    }
+
+    .header-nav {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+      overflow-x: auto;
+      padding-bottom: 0.1rem;
+    }
+
+    .header-actions {
+      gap: 0.45rem;
+    }
+  }
+</style>

@@ -1,0 +1,195 @@
+---
+lang: en
+slug: fanout
+title: "Fanout"
+summary: "Replicates the same event to multiple independent consumers without forcing the producer to know every destination."
+category: event-driven
+problemFocus: broadcast
+problem: "A service needs to trigger the same domain change across several downstream capabilities and point-to-point integrations are starting to slow down change and operations."
+whenToUse:
+  - "When the same event should trigger notifications, analytics, integrations, and parallel workflows."
+  - "When you want to add new consumers without redeploying the producer."
+  - "When each subscriber should evolve on its own cadence."
+whenNotToUse:
+  - "When consumers have strong sequential dependencies on each other."
+  - "When the event contract is still too unstable to be shared widely."
+  - "When every subscriber requires a synchronous response path."
+complexity: intermediate
+flowType: asynchronous
+tags:
+  - "events"
+  - "pub-sub"
+  - "decoupling"
+  - "subscribers"
+awsServices:
+  - "Amazon SNS"
+  - "Amazon EventBridge"
+  - "Amazon SQS"
+  - "AWS Lambda"
+relatedPatterns:
+  - "competing-consumers"
+  - "event-carried-state-transfer"
+  - "transactional-outbox"
+media:
+  heroImage:
+    src: "/media/patterns/fanout.svg"
+    alt: "Diagram showing one producer publishing the same event to multiple independent consumers."
+    caption: "A central channel distributes the same event to different teams and downstream capabilities."
+  diagram:
+    src: "/media/patterns/fanout.svg"
+    alt: "Diagram showing one producer publishing the same event to multiple independent consumers."
+    caption: "A central channel distributes the same event to different teams and downstream capabilities."
+asciiDiagram:
+  title: "Fanout :: terminal diagram"
+  art: |-
+    +----------------------------------------------------------------+
+    | Fanout :: quick read                                           |
+    +----------------------------------------------------------------+
+    | [01] The producer emits a single event                         |
+    | -> That event should be stable enough to version and share.    |
+    | [02] The bus fans out to subscribers                           |
+    | -> SNS, EventBridge, or SQS fanout absorb delivery, filteri... |
+    | [03] Each consumer processes independently                     |
+    | -> Local failures or code changes do not require producer-s... |
+    | [04] New destinations join without touching the emitter        |
+    | -> The architecture gains genuine extensibility for new use... |
+    +----------------------------------------------------------------+
+    | AWS :: Amazon SNS | Amazon EventBridge | Amazon SQS            |
+    +----------------------------------------------------------------+
+  caption: "ASCII summary of the primary flow, designed for quick reference."
+references:
+  - id: "hohpe-eip"
+    title: "Enterprise Integration Patterns"
+    authors:
+      - "Gregor Hohpe"
+      - "Bobby Woolf"
+    year: 2003
+    publisher: "Addison-Wesley Professional"
+    type: book
+    role: conceptual
+  - id: "aws-sns-a2a"
+    title: "Using Amazon SNS for application-to-application messaging"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon SNS Developer Guide"
+    type: official-doc
+    role: implementation
+    url: "https://docs.aws.amazon.com/sns/latest/dg/sns-system-to-system-messaging.html"
+  - id: "aws-sns-fanout-lambda"
+    title: "Fanout Amazon SNS notifications to Lambda functions for automated processing"
+    authors:
+      - "Amazon Web Services"
+    year: 2026
+    publisher: "Amazon SNS Developer Guide"
+    type: official-doc
+    role: complementary
+    url: "https://docs.aws.amazon.com/sns/latest/dg/sns-lambda-as-subscriber.html"
+featured: true
+---
+
+## General concept
+
+Fanout becomes useful when one domain event suddenly has several interested parties and each new integration starts introducing accidental dependency back into the producer. <Cite ids={["hohpe-eip"]} />
+
+With a topic or event bus in place, the producer publishes once and lets the messaging layer handle subscription, delivery, and retries for each consumer. <Cite ids={["aws-sns-a2a","aws-sns-fanout-lambda"]} />
+
+## Graphical representation
+
+<ArchitectureDiagram title={"One producer, many destinations, independent contracts"} type="flowchart" code={"Producer[\"Publishing service\"] --> Bus[\"SNS Topic / EventBridge Bus\"]\nBus --> Billing[\"Billing\"]\nBus --> Notifications[\"Notifications\"]\nBus --> Analytics[\"Analytics\"]\nBus --> Workflow[\"Subscribed workflow\"]"} caption={"The producer emits the business fact once; each consumer owns its own reaction."} />
+
+## Visual flow
+
+<FlowSteps steps={[
+  {
+    "title": "The producer emits a single event",
+    "description": "That event should be stable enough to version and share."
+  },
+  {
+    "title": "The bus fans out to subscribers",
+    "description": "SNS, EventBridge, or SQS fanout absorb delivery, filtering, and retries."
+  },
+  {
+    "title": "Each consumer processes independently",
+    "description": "Local failures or code changes do not require producer-side changes."
+  },
+  {
+    "title": "New destinations join without touching the emitter",
+    "description": "The architecture gains genuine extensibility for new use cases."
+  }
+]} />
+
+## Key trade-offs
+
+<TradeoffTable rows={[
+  {
+    "area": "Evolution",
+    "benefit": "New consumers can be added without changing the source service.",
+    "cost": "Event governance and versioning become much more important."
+  },
+  {
+    "area": "Operations",
+    "benefit": "Each subscriber can scale and fail independently.",
+    "cost": "End-to-end tracing requires correlation across publish and consume paths."
+  },
+  {
+    "area": "Product",
+    "benefit": "One business change can feed several capabilities in parallel.",
+    "cost": "A poorly designed event spreads ambiguity across many teams."
+  }
+]} />
+
+## Quick checklist
+
+### Strong fit
+
+<Checklist items={[
+  "More than one consumer cares about the same domain fact.",
+  "Downstream processing can be asynchronous.",
+  "The team wants extensibility without modifying the producer."
+]} />
+
+### Warning signs
+
+<Checklist tone="warning" items={[
+  "The event exposes too many internal producer details.",
+  "Consumers have no idempotency strategy.",
+  "Consumers require global ordering without infrastructure to support it."
+]} />
+
+<Callout title={"Editorial note"} tone="warning">
+  <p>Fanout decouples distribution, but it does not remove the need for strong contracts, DLQs, and subscriber-level observability. <Cite ids={["aws-sns-a2a","aws-sns-fanout-lambda"]} /></p>
+</Callout>
+
+## AWS implementation
+
+<AwsExample scenario={"Checkout publishes OrderPlaced and multiple contexts must react without point-to-point coupling."} services={[
+  "Amazon SNS",
+  "Amazon EventBridge",
+  "Amazon SQS",
+  "AWS Lambda"
+]} implementation={[
+  "The order service publishes the event into Amazon EventBridge or Amazon SNS.",
+  "Simple subscribers process directly with AWS Lambda; subscribers that need burst absorption can use Amazon SQS between the topic and the consumer.",
+  "Attribute-based filtering keeps each subscriber focused on relevant events.",
+  "Correlating by eventId and traceId makes delivery and replay easier to debug."
+]} />
+
+## Common mistakes
+
+- Using fanout when the business flow really requires a sequential process.
+- Publishing oversized payloads and turning the bus into a mirror of the producer database.
+- Skipping DLQs and replay paths for critical subscribers.
+
+## Quick comparisons
+
+<ComparisonBlock items={[
+  {
+    "title": "Fanout vs Competing Consumers",
+    "difference": "Fanout replicates to multiple destinations; Competing Consumers split work across workers for the same destination."
+  },
+  {
+    "title": "Fanout vs Pipes and Filters",
+    "difference": "Fanout spreads the same event broadly; Pipes and Filters chains transformations through one journey."
+  }
+]} />
