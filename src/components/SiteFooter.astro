@@ -1,5 +1,5 @@
 ---
-import { getCopy, type Language } from "../lib/site";
+import { getCopy, servicesCatalogBase, certificationHubBase, type Language } from "../lib/site";
 import { localizedPath } from "../lib/paths";
 
 interface Props {
@@ -21,6 +21,8 @@ const copy = getCopy(lang);
       <a href={localizedPath(lang)}>{copy.home}</a>
       <a href={localizedPath(lang, "patterns")}>{copy.catalog}</a>
       <a href={localizedPath(lang, "services")}>{copy.services}</a>
+      <a href={`${servicesCatalogBase}/${lang}/`} target="_blank" rel="noopener">{lang === "pt" ? "Catálogo de serviços" : "Services catalog"}</a>
+      <a href={`${certificationHubBase}/${lang}/`} target="_blank" rel="noopener">{lang === "pt" ? "Certificações" : "Certifications"}</a>
       <a href="https://github.com/marcelomamorim/aws-architecture-patterns-hub">GitHub</a>
     </nav>
   </div>

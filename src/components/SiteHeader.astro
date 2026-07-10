@@ -2,7 +2,7 @@
 import LanguageSwitcher from "./LanguageSwitcher.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import { localizedPath } from "../lib/paths";
-import { getCopy, type Language } from "../lib/site";
+import { getCopy, servicesCatalogBase, certificationHubBase, type Language } from "../lib/site";
 
 interface Props {
   lang: Language;
@@ -11,6 +11,8 @@ interface Props {
 
 const { lang, currentPath } = Astro.props;
 const copy = getCopy(lang);
+const catalogLabel = lang === "pt" ? "Catálogo de serviços" : "Services catalog";
+const certLabel = lang === "pt" ? "Certificações" : "Certifications";
 ---
 
 <header class="header-wrap">
@@ -24,6 +26,8 @@ const copy = getCopy(lang);
       <a href={localizedPath(lang)}>{copy.home}</a>
       <a href={localizedPath(lang, "patterns")}>{copy.catalog}</a>
       <a href={localizedPath(lang, "services")}>{copy.services}</a>
+      <a href={`${servicesCatalogBase}/${lang}/`} target="_blank" rel="noopener">{catalogLabel} ↗</a>
+      <a href={`${certificationHubBase}/${lang}/`} target="_blank" rel="noopener">{certLabel} ↗</a>
     </nav>
 
     <div class="header-actions">
@@ -90,6 +94,7 @@ const copy = getCopy(lang);
     color: var(--text-muted);
     font-size: 0.92rem;
     font-weight: 500;
+    white-space: nowrap;
   }
 
   .header-nav a:hover {

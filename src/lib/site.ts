@@ -19,6 +19,10 @@ export const siteDescription = {
   en: "Bilingual catalog of architecture patterns with visual explanations, trade-offs, and AWS implementation guidance."
 } as const;
 
+// Projetos irmãos do ecossistema de estudos AWS (cross-linking).
+export const servicesCatalogBase = "https://marcelomamorim.github.io/aws-services-catalog";
+export const certificationHubBase = "https://marcelomamorim.github.io/aws-certification-hub";
+
 export const uiCopy = {
   pt: {
     home: "Início",
